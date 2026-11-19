@@ -1,0 +1,4075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Pipeline Explorer</title>
+
+  <style>
+    /* ===== WHAT THIS DOES: Resets browser defaults and sets CSS variables for the deep-space theme ===== */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-deep:    #0a0e1a;
+      --bg-panel:   #111827;
+      --bg-card:    #1a2235;
+      --cyan:       #22d3ee;
+      --cyan-glow:  rgba(34, 211, 238, 0.35);
+      --amber:      #f59e0b;
+      --amber-glow: rgba(245, 158, 11, 0.30);
+      --text:       #e2e8f0;
+      --text-dim:   #94a3b8;
+      --font-sans:  'Segoe UI', system-ui, -apple-system, sans-serif;
+      --font-mono:  'Courier New', 'Consolas', monospace;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--bg-deep);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ===== WHAT THIS DOES: Adds a subtle star-field background using tiny radial gradients ===== */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background:
+        radial-gradient(1px 1px at 10% 20%,  rgba(255,255,255,0.5), transparent),
+        radial-gradient(1px 1px at 25% 55%,  rgba(255,255,255,0.4), transparent),
+        radial-gradient(1px 1px at 40% 15%,  rgba(255,255,255,0.3), transparent),
+        radial-gradient(1px 1px at 55% 70%,  rgba(255,255,255,0.5), transparent),
+        radial-gradient(1px 1px at 70% 35%,  rgba(255,255,255,0.3), transparent),
+        radial-gradient(1px 1px at 85% 80%,  rgba(255,255,255,0.4), transparent),
+        radial-gradient(1px 1px at 15% 85%,  rgba(255,255,255,0.3), transparent),
+        radial-gradient(1px 1px at 60% 45%,  rgba(255,255,255,0.5), transparent),
+        radial-gradient(1px 1px at 90% 10%,  rgba(255,255,255,0.4), transparent),
+        radial-gradient(1px 1px at 35% 90%,  rgba(255,255,255,0.3), transparent),
+        radial-gradient(1.5px 1.5px at 5% 50%, rgba(34,211,238,0.3), transparent),
+        radial-gradient(1.5px 1.5px at 75% 60%, rgba(245,158,11,0.3), transparent),
+        radial-gradient(1.5px 1.5px at 50% 5%,  rgba(34,211,238,0.2), transparent);
+      pointer-events: none;
+    }
+
+    /* ===== WHAT THIS DOES: Styles the sticky navbar that stays at the top when you scroll ===== */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 2rem;
+      background: rgba(10, 14, 26, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(34, 211, 238, 0.15);
+    }
+
+    .nav-logo {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan-glow);
+      letter-spacing: 0.5px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1.75rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      transition: color 0.3s, text-shadow 0.3s;
+    }
+
+    .nav-links a:hover {
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan-glow);
+    }
+
+    /* ===== WHAT THIS DOES: Styles the hero — the big intro section visitors see first ===== */
+    .hero {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      min-height: 90vh;
+      padding: 4rem 2rem;
+    }
+
+    .hero h1 {
+      font-family: var(--font-mono);
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 0 20px var(--cyan-glow), 0 0 40px rgba(34, 211, 238, 0.15);
+      margin-bottom: 0.75rem;
+    }
+
+    .hero .tagline {
+      font-size: 1.15rem;
+      color: var(--text-dim);
+      max-width: 600px;
+      margin-bottom: 3rem;
+    }
+
+    /* ===== WHAT THIS DOES: Lays out the three stat counters in a horizontal row ===== */
+    .stats {
+      display: flex;
+      gap: 3rem;
+      margin-bottom: 3rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: var(--cyan);
+      text-shadow: 0 0 12px var(--cyan-glow);
+    }
+
+    .stat:nth-child(2) .stat-value {
+      color: var(--amber);
+      text-shadow: 0 0 12px var(--amber-glow);
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ===== WHAT THIS DOES: Styles the glowing call-to-action button ===== */
+    .cta-btn {
+      display: inline-block;
+      padding: 0.85rem 2.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--bg-deep);
+      background: var(--cyan);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow: 0 0 20px var(--cyan-glow), 0 0 40px rgba(34, 211, 238, 0.15);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .cta-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 30px var(--cyan-glow), 0 0 60px rgba(34, 211, 238, 0.2);
+    }
+
+    /* ===== WHAT THIS DOES: Section layout with smooth scroll fade-in transition ===== */
+    .section {
+      position: relative;
+      z-index: 1;
+      min-height: 50vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 5rem 2rem;
+      border-top: 1px solid rgba(34, 211, 238, 0.08);
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .section.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .section h2 {
+      font-family: var(--font-mono);
+      font-size: 1.8rem;
+      color: #fff;
+      margin-bottom: 0.75rem;
+      text-shadow: 0 0 10px var(--cyan-glow);
+    }
+
+    .section .placeholder-msg {
+      font-size: 0.95rem;
+      color: var(--text-dim);
+      padding: 1rem 2rem;
+      border: 1px dashed rgba(148, 163, 184, 0.25);
+      border-radius: 8px;
+      font-family: var(--font-mono);
+    }
+
+    /* ===== WHAT THIS DOES: Small blinking status indicator next to the section heading ===== */
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 6px var(--amber-glow);
+      margin-left: 0.5rem;
+      animation: blink 2s ease-in-out infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.3; }
+    }
+
+    /* ===== WHAT THIS DOES: Styles the pipeline stepper — the row of 8 stage buttons ===== */
+    .stepper-wrapper {
+      width: 100%;
+      max-width: 900px;
+      margin-top: 1.5rem;
+    }
+
+    .stepper-track {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .stage-btn {
+      position: relative;
+      padding: 0.55rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      background: var(--bg-card);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+
+    .stage-btn:first-child { border-radius: 6px 0 0 6px; }
+    .stage-btn:last-child  { border-radius: 0 6px 6px 0; }
+
+    .stage-btn:not(:last-child) {
+      border-right: none;
+    }
+
+    .stage-btn:hover {
+      color: var(--cyan);
+      background: rgba(34, 211, 238, 0.08);
+    }
+
+    .stage-btn.active {
+      color: var(--bg-deep);
+      background: var(--cyan);
+      border-color: var(--cyan);
+      box-shadow: 0 0 14px var(--cyan-glow);
+      z-index: 2;
+    }
+
+    /* WHAT THIS DOES: Marks completed (earlier) stages with a subtler amber style */
+    .stage-btn.completed {
+      color: var(--amber);
+      border-color: rgba(245, 158, 11, 0.3);
+      background: rgba(245, 158, 11, 0.08);
+    }
+
+    /* WHAT THIS DOES: Styles the Previous / Next navigation buttons below the stage row */
+    .stepper-nav {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .nav-btn {
+      padding: 0.5rem 1.6rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--cyan);
+      background: transparent;
+      border: 1px solid rgba(34, 211, 238, 0.3);
+      border-radius: 5px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: all 0.25s;
+    }
+
+    .nav-btn:hover:not(:disabled) {
+      background: rgba(34, 211, 238, 0.1);
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan-glow);
+    }
+
+    .nav-btn:disabled {
+      color: rgba(148, 163, 184, 0.3);
+      border-color: rgba(148, 163, 184, 0.1);
+      cursor: not-allowed;
+    }
+
+    /* WHAT THIS DOES: Styles the detail panel that shows info about the selected stage */
+    .stage-detail {
+      background: var(--bg-panel);
+      border: 1px solid rgba(34, 211, 238, 0.12);
+      border-radius: 10px;
+      padding: 2rem 2.5rem;
+      text-align: left;
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .stage-detail-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .stage-detail-number {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--bg-deep);
+      background: var(--cyan);
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px var(--cyan-glow);
+      flex-shrink: 0;
+    }
+
+    .stage-detail-name {
+      font-family: var(--font-mono);
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 0 8px var(--cyan-glow);
+    }
+
+    .stage-detail-desc {
+      color: var(--text-dim);
+      font-size: 0.95rem;
+      line-height: 1.7;
+      margin-top: 0.5rem;
+    }
+
+    /* ===== WHAT THIS DOES: Lays out the four info boxes in a 2×2 grid inside each stage panel ===== */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .info-box {
+      background: var(--bg-card);
+      border: 1px solid rgba(34, 211, 238, 0.1);
+      border-radius: 8px;
+      padding: 1.15rem 1.3rem;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .info-box:hover {
+      border-color: rgba(34, 211, 238, 0.3);
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.08);
+    }
+
+    .info-box-label {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 0.6rem;
+    }
+
+    /* WHAT THIS DOES: Gives each of the four box labels a different accent colour */
+    .info-box.what  .info-box-label { color: var(--cyan); }
+    .info-box.why   .info-box-label { color: var(--amber); }
+    .info-box.analogy .info-box-label { color: #a78bfa; }  /* soft purple */
+    .info-box.data  .info-box-label { color: #34d399; }    /* soft green  */
+
+    .info-box-text {
+      color: var(--text);
+      font-size: 0.88rem;
+      line-height: 1.65;
+    }
+
+    /* WHAT THIS DOES: Styles the Data-In → Data-Out arrows and code-like snippets */
+    .data-flow {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .data-tag {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      background: rgba(52, 211, 153, 0.1);
+      border: 1px solid rgba(52, 211, 153, 0.25);
+      color: #34d399;
+      padding: 0.3rem 0.7rem;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .data-arrow {
+      color: var(--text-dim);
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    /* ===== WHAT THIS DOES: Styles the Playground section — prompt input, preset buttons, results ===== */
+    .playground-wrapper {
+      width: 100%;
+      max-width: 800px;
+      margin-top: 1.5rem;
+    }
+
+    .pg-input-area {
+      background: var(--bg-panel);
+      border: 1px solid rgba(34, 211, 238, 0.12);
+      border-radius: 10px;
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .pg-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 0.6rem;
+    }
+
+    .pg-textarea {
+      width: 100%;
+      min-height: 80px;
+      padding: 0.85rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--text);
+      background: var(--bg-deep);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 6px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+
+    .pg-textarea:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.12);
+    }
+
+    .pg-textarea::placeholder {
+      color: rgba(148, 163, 184, 0.4);
+    }
+
+    /* WHAT THIS DOES: Row of preset prompt buttons + the Run button */
+    .pg-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+
+    .preset-btn {
+      padding: 0.4rem 0.9rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      background: var(--bg-card);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.25s;
+      white-space: nowrap;
+    }
+
+    .preset-btn:hover {
+      color: var(--amber);
+      border-color: rgba(245, 158, 11, 0.4);
+      background: rgba(245, 158, 11, 0.08);
+    }
+
+    .pg-run-btn {
+      margin-left: auto;
+      padding: 0.5rem 1.8rem;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--bg-deep);
+      background: var(--cyan);
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      box-shadow: 0 0 14px var(--cyan-glow);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .pg-run-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 22px var(--cyan-glow);
+    }
+
+    /* WHAT THIS DOES: Styles the results panel that appears after clicking Run */
+    .pg-results {
+      background: var(--bg-panel);
+      border: 1px solid rgba(34, 211, 238, 0.12);
+      border-radius: 10px;
+      padding: 1.5rem 1.75rem;
+      display: none;              /* hidden until Run is clicked */
+    }
+
+    .pg-results.visible {
+      display: block;
+    }
+
+    .pg-token-count {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      margin-bottom: 1rem;
+    }
+
+    .pg-token-count strong {
+      color: var(--amber);
+      font-size: 1.1rem;
+    }
+
+    /* WHAT THIS DOES: Lays out the token chips in a flowing row that wraps */
+    .pg-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+
+    .pg-chip {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.15rem;
+      padding: 0.4rem 0.65rem;
+      border-radius: 5px;
+      font-family: var(--font-mono);
+      animation: chipFadeIn 0.3s ease-out both;
+    }
+
+    @keyframes chipFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .pg-chip-text {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .pg-chip-id {
+      font-size: 0.6rem;
+      opacity: 0.7;
+    }
+
+    /* WHAT THIS DOES: Styles the small simulation disclaimer note */
+    .pg-note {
+      margin-top: 1.25rem;
+      padding: 0.7rem 1rem;
+      background: rgba(245, 158, 11, 0.06);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      border-radius: 6px;
+      font-size: 0.78rem;
+      color: var(--amber);
+      font-family: var(--font-mono);
+      text-align: center;
+    }
+
+    /* ===== WHAT THIS DOES: Styles the temperature slider and next-token bar chart ===== */
+    .pg-temperature {
+      background: var(--bg-panel);
+      border: 1px solid rgba(34, 211, 238, 0.12);
+      border-radius: 10px;
+      padding: 1.5rem 1.75rem;
+      margin-top: 1.25rem;
+      display: none;
+    }
+
+    .pg-temperature.visible {
+      display: block;
+    }
+
+    .temp-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 0.6rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .temp-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--bg-card);
+      outline: none;
+    }
+
+    .temp-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--cyan);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--cyan-glow);
+      border: 2px solid var(--bg-deep);
+    }
+
+    .temp-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--cyan);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--cyan-glow);
+      border: 2px solid var(--bg-deep);
+    }
+
+    .temp-value {
+      font-family: var(--font-mono);
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan-glow);
+      min-width: 3.2rem;
+      text-align: right;
+    }
+
+    .temp-labels {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      margin-top: -0.8rem;
+      margin-bottom: 1.2rem;
+    }
+
+    /* WHAT THIS DOES: Styles each horizontal bar in the top-5 candidate chart */
+    .bar-chart {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .bar-token {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      min-width: 90px;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bar-track {
+      flex: 1;
+      height: 26px;
+      background: var(--bg-card);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.4s ease-out;
+      min-width: 2px;
+    }
+
+    .bar-pct {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 700;
+      min-width: 52px;
+      text-align: left;
+    }
+
+    .temp-explanation {
+      margin-top: 1.1rem;
+      padding: 0.65rem 1rem;
+      background: rgba(34, 211, 238, 0.05);
+      border: 1px solid rgba(34, 211, 238, 0.15);
+      border-radius: 6px;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    /* ===== WHAT THIS DOES: Styles the Simulated Output box, streaming text, and metrics ===== */
+    .pg-output {
+      background: var(--bg-panel);
+      border: 1px solid rgba(34, 211, 238, 0.12);
+      border-radius: 10px;
+      padding: 1.5rem 1.75rem;
+      margin-top: 1.25rem;
+      display: none;
+    }
+
+    .pg-output.visible {
+      display: block;
+    }
+
+    .pg-output-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.8rem;
+    }
+
+    .pg-output-stats {
+      display: flex;
+      gap: 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    .pg-output-stats strong {
+      color: var(--amber);
+    }
+
+    .pg-output-text {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      color: #fff;
+      line-height: 1.7;
+      min-height: 52px;
+      padding: 1rem 1.2rem;
+      background: var(--bg-deep);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .pg-output-cursor {
+      display: inline-block;
+      width: 8px;
+      height: 16px;
+      background: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan-glow);
+      margin-left: 4px;
+      vertical-align: middle;
+      animation: blink 0.8s infinite;
+    }
+
+    /* ===== WHAT THIS DOES: Styles the Attention section, arc visualizer, and heatmap grid ===== */
+    .attn-wrapper {
+      width: 100%;
+      max-width: 900px;
+      margin-top: 1.5rem;
+    }
+
+    .attn-panel {
+      background: var(--bg-panel);
+      border: 1px solid rgba(34, 211, 238, 0.12);
+      border-radius: 10px;
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .attn-section-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 0.8rem;
+    }
+
+    .attn-control-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .attn-selector-btn {
+      padding: 0.45rem 0.9rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      background: var(--bg-card);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+
+    .attn-selector-btn:hover {
+      color: var(--cyan);
+      border-color: rgba(34, 211, 238, 0.4);
+      background: rgba(34, 211, 238, 0.08);
+    }
+
+    .attn-selector-btn.active {
+      color: var(--bg-deep);
+      background: var(--cyan);
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px var(--cyan-glow);
+    }
+
+    .attn-head-btn.active {
+      background: var(--amber);
+      border-color: var(--amber);
+      box-shadow: 0 0 12px var(--amber-glow);
+      color: var(--bg-deep);
+    }
+
+    .attn-head-desc {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--amber);
+      margin-top: -0.5rem;
+      margin-bottom: 1.25rem;
+      padding: 0.5rem 0.8rem;
+      background: rgba(245, 158, 11, 0.08);
+      border-radius: 5px;
+      border-left: 3px solid var(--amber);
+    }
+
+    /* WHAT THIS DOES: Container for the interactive token arc visualization */
+    .attn-arc-container {
+      position: relative;
+      background: var(--bg-deep);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 8px;
+      padding: 1.5rem 1rem 1.25rem 1rem;
+      overflow-x: auto;
+    }
+
+    .attn-arc-svg {
+      width: 100%;
+      height: 120px;
+      display: block;
+      overflow: visible;
+    }
+
+    .attn-tokens-track {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.4rem;
+      margin-top: 0.75rem;
+      min-width: 600px;
+    }
+
+    .attn-token-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+      flex: 1;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .attn-token-badge {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.35rem 0.55rem;
+      background: var(--bg-card);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 5px;
+      color: var(--text);
+      transition: all 0.25s;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    .attn-token-item:hover .attn-token-badge {
+      border-color: var(--cyan);
+      box-shadow: 0 0 8px rgba(34, 211, 238, 0.2);
+    }
+
+    .attn-token-item.is-query .attn-token-badge {
+      background: var(--cyan);
+      color: var(--bg-deep);
+      border-color: var(--cyan);
+      box-shadow: 0 0 14px var(--cyan-glow);
+      font-weight: 700;
+    }
+
+    .attn-weight-tag {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      transition: color 0.25s;
+    }
+
+    .attn-token-item.has-attention .attn-weight-tag {
+      color: var(--amber);
+      font-weight: 700;
+    }
+
+    /* WHAT THIS DOES: Full N x N Attention Matrix Heatmap styles */
+    .attn-heatmap-section {
+      margin-top: 1.5rem;
+    }
+
+    .attn-heatmap-scroll {
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+    }
+
+    .attn-matrix {
+      border-collapse: collapse;
+      margin: 0 auto;
+      font-family: var(--font-mono);
+    }
+
+    .attn-matrix th {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      padding: 0.3rem 0.45rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .attn-matrix th.row-header {
+      text-align: right;
+    }
+
+    .attn-matrix th.col-header {
+      text-align: center;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      max-height: 70px;
+    }
+
+    .attn-matrix td {
+      width: 24px;
+      height: 24px;
+      min-width: 24px;
+      min-height: 24px;
+      border: 1px solid rgba(10, 14, 26, 0.8);
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+
+    .attn-matrix td:hover {
+      transform: scale(1.2);
+      z-index: 5;
+      border-color: #fff;
+    }
+
+    .attn-matrix tr.selected-row td {
+      border-top: 1px solid var(--cyan);
+      border-bottom: 1px solid var(--cyan);
+    }
+
+    .attn-legend {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.6rem;
+      margin-top: 0.8rem;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+
+    .attn-legend-bar {
+      width: 120px;
+      height: 10px;
+      border-radius: 3px;
+      background: linear-gradient(to right, rgba(34, 211, 238, 0.05), rgba(34, 211, 238, 0.95));
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    /* ===== WHAT THIS DOES: Styles the Query, Key, Value explainer cards and math formula ===== */
+    .qkv-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .qkv-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 8px;
+      padding: 1.25rem 1.4rem;
+      transition: all 0.3s;
+    }
+
+    .qkv-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .qkv-card.query {
+      border-top: 3px solid var(--cyan);
+    }
+
+    .qkv-card.query:hover {
+      box-shadow: 0 0 15px rgba(34, 211, 238, 0.15);
+    }
+
+    .qkv-card.key {
+      border-top: 3px solid var(--amber);
+    }
+
+    .qkv-card.key:hover {
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.15);
+    }
+
+    .qkv-card.value {
+      border-top: 3px solid #a78bfa;
+    }
+
+    .qkv-card.value:hover {
+      box-shadow: 0 0 15px rgba(167, 139, 250, 0.15);
+    }
+
+    .qkv-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .qkv-letter {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      width: 26px;
+      height: 26px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .qkv-card.query .qkv-letter { background: rgba(34, 211, 238, 0.18); color: var(--cyan); border: 1px solid var(--cyan); }
+    .qkv-card.key   .qkv-letter { background: rgba(245, 158, 11, 0.18); color: var(--amber); border: 1px solid var(--amber); }
+    .qkv-card.value .qkv-letter { background: rgba(167, 139, 250, 0.18); color: #a78bfa;   border: 1px solid #a78bfa; }
+
+    .qkv-title {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .qkv-hook {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      font-style: italic;
+      margin-bottom: 0.75rem;
+    }
+
+    .qkv-body {
+      font-size: 0.85rem;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 0.85rem;
+    }
+
+    .qkv-example {
+      padding: 0.65rem 0.8rem;
+      background: var(--bg-deep);
+      border: 1px dashed rgba(148, 163, 184, 0.25);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    .qkv-example strong {
+      color: #fff;
+    }
+
+    /* WHAT THIS DOES: Attention formula display box and scaling factor explanation */
+    .attn-formula-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(34, 211, 238, 0.18);
+      border-radius: 8px;
+      padding: 1.4rem 1.6rem;
+      margin-top: 1rem;
+    }
+
+    .attn-formula-display {
+      text-align: center;
+      padding: 1rem;
+      background: var(--bg-deep);
+      border: 1px solid rgba(34, 211, 238, 0.25);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--cyan);
+      text-shadow: 0 0 10px var(--cyan-glow);
+      margin-bottom: 1rem;
+      letter-spacing: 0.5px;
+      overflow-x: auto;
+    }
+
+    .attn-formula-note {
+      font-size: 0.86rem;
+      line-height: 1.65;
+      color: var(--text);
+    }
+
+    .attn-formula-note strong {
+      color: var(--amber);
+    }
+
+    /* ===== WHAT THIS DOES: Styles the Transformer architecture diagram & explanation cards ===== */
+    .tf-wrapper {
+      width: 100%;
+      max-width: 900px;
+      margin-top: 1.5rem;
+    }
+
+    .tf-container {
+      background: var(--bg-panel);
+      border: 1px solid rgba(34, 211, 238, 0.12);
+      border-radius: 10px;
+      padding: 1.75rem 2rem;
+    }
+
+    .tf-layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    @media (max-width: 768px) {
+      .tf-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* WHAT THIS DOES: Vertical architecture diagram with spine and skip paths */
+    .tf-diagram-stage {
+      position: relative;
+      background: var(--bg-deep);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 8px;
+      padding: 1.5rem 1rem 1.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      user-select: none;
+    }
+
+    /* SVG overlay for residual skip paths and dataflow arrows */
+    .tf-svg-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .tf-spine {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      width: 100%;
+      max-width: 220px;
+      margin-left: 40px; /* leaves room for the residual bypass on the left */
+    }
+
+    .tf-node {
+      width: 100%;
+      padding: 0.75rem 0.9rem;
+      background: var(--bg-card);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 6px;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.25s;
+      position: relative;
+    }
+
+    .tf-node:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.25);
+      transform: scale(1.02);
+    }
+
+    .tf-node.active {
+      border-color: var(--cyan);
+      background: rgba(34, 211, 238, 0.15);
+      box-shadow: 0 0 14px var(--cyan-glow);
+      color: #fff;
+    }
+
+    .tf-node.norm {
+      background: rgba(167, 139, 250, 0.1);
+      border-color: rgba(167, 139, 250, 0.3);
+      color: #c4b5fd;
+    }
+
+    .tf-node.norm.active {
+      border-color: #a78bfa;
+      background: rgba(167, 139, 250, 0.25);
+      box-shadow: 0 0 14px rgba(167, 139, 250, 0.4);
+      color: #fff;
+    }
+
+    .tf-node.mha {
+      background: rgba(34, 211, 238, 0.1);
+      border-color: rgba(34, 211, 238, 0.35);
+      color: var(--cyan);
+    }
+
+    .tf-node.ffn {
+      background: rgba(52, 211, 153, 0.1);
+      border-color: rgba(52, 211, 153, 0.35);
+      color: #34d399;
+    }
+
+    .tf-node.ffn.active {
+      border-color: #34d399;
+      background: rgba(52, 211, 153, 0.25);
+      box-shadow: 0 0 14px rgba(52, 211, 153, 0.4);
+      color: #fff;
+    }
+
+    .tf-node.io {
+      background: rgba(148, 163, 184, 0.08);
+      font-size: 0.72rem;
+      border-style: dashed;
+    }
+
+    .tf-arrow-down {
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      line-height: 1;
+    }
+
+    /* Clickable residual connection button indicator on the side */
+    .tf-residual-tag {
+      position: absolute;
+      left: 12px;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--amber);
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      padding: 0.25rem 0.45rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.25s;
+      z-index: 3;
+      white-space: nowrap;
+    }
+
+    .tf-residual-tag:hover, .tf-residual-tag.active {
+      background: var(--amber);
+      color: var(--bg-deep);
+      box-shadow: 0 0 10px var(--amber-glow);
+    }
+
+    .tf-residual-tag.tag-top {
+      top: 155px;
+    }
+
+    .tf-residual-tag.tag-bottom {
+      top: 315px;
+    }
+
+    /* WHAT THIS DOES: Explanatory side panel that shows details on the selected component */
+    .tf-detail-panel {
+      background: var(--bg-card);
+      border: 1px solid rgba(34, 211, 238, 0.18);
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+
+    .tf-detail-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .tf-detail-icon {
+      font-size: 1.3rem;
+    }
+
+    .tf-detail-title {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 0 8px var(--cyan-glow);
+    }
+
+    .tf-detail-desc {
+      font-size: 0.88rem;
+      line-height: 1.65;
+      color: var(--text);
+      margin-bottom: 1rem;
+    }
+
+    .tf-detail-why {
+      background: var(--bg-deep);
+      border-left: 3px solid var(--amber);
+      padding: 0.65rem 0.85rem;
+      border-radius: 0 5px 5px 0;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: var(--text-dim);
+      margin-bottom: 1rem;
+    }
+
+    .tf-detail-why strong {
+      color: var(--amber);
+    }
+
+    .tf-detail-math {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      background: rgba(34, 211, 238, 0.08);
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      border-radius: 5px;
+      padding: 0.5rem 0.75rem;
+      color: var(--cyan);
+    }
+
+    /* WHAT THIS DOES: Callout banner explaining that real models stack 32-96+ blocks */
+    .tf-stacking-note {
+      grid-column: 1 / -1;
+      margin-top: 1.5rem;
+      padding: 1.1rem 1.4rem;
+      background: rgba(34, 211, 238, 0.05);
+      border: 1px solid rgba(34, 211, 238, 0.25);
+      border-radius: 8px;
+      font-size: 0.88rem;
+      line-height: 1.65;
+      color: var(--text);
+    }
+
+    .tf-stacking-note strong {
+      color: var(--cyan);
+    }
+
+    .tf-stacking-note em {
+      color: var(--amber);
+      font-style: normal;
+    }
+
+    /* ===== WHAT THIS DOES: Styles the Glossary search, filter buttons, and term cards ===== */
+    .glossary-wrapper {
+      width: 100%;
+      max-width: 900px;
+      margin-top: 1.5rem;
+    }
+
+    .glossary-controls {
+      background: var(--bg-panel);
+      border: 1px solid rgba(34, 211, 238, 0.12);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .glossary-search-box {
+      position: relative;
+      width: 100%;
+    }
+
+    .glossary-search-input {
+      width: 100%;
+      padding: 0.75rem 1rem 0.75rem 2.4rem;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      color: var(--text);
+      background: var(--bg-deep);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .glossary-search-input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.15);
+    }
+
+    .glossary-search-icon {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      font-size: 0.95rem;
+      pointer-events: none;
+    }
+
+    .glossary-filter-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .glossary-filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .glossary-filter-btn {
+      padding: 0.4rem 0.85rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      background: var(--bg-card);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+
+    .glossary-filter-btn:hover {
+      color: var(--cyan);
+      border-color: rgba(34, 211, 238, 0.3);
+    }
+
+    .glossary-filter-btn.active {
+      color: var(--bg-deep);
+      background: var(--cyan);
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan-glow);
+    }
+
+    .glossary-counter {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+
+    .glossary-counter strong {
+      color: var(--amber);
+    }
+
+    /* Grid layout for the glossary cards */
+    .glossary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 1rem;
+    }
+
+    .glossary-card {
+      background: var(--bg-panel);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 8px;
+      padding: 1.2rem 1.35rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .glossary-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(34, 211, 238, 0.3);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+    }
+
+    .glossary-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .glossary-term {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .glossary-badge {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .glossary-badge.arch {
+      background: rgba(34, 211, 238, 0.12);
+      color: var(--cyan);
+      border: 1px solid rgba(34, 211, 238, 0.35);
+    }
+
+    .glossary-badge.mech {
+      background: rgba(167, 139, 250, 0.12);
+      color: #a78bfa;
+      border: 1px solid rgba(167, 139, 250, 0.35);
+    }
+
+    .glossary-badge.samp {
+      background: rgba(245, 158, 11, 0.12);
+      color: var(--amber);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+
+    .glossary-def {
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: var(--text);
+    }
+
+    .glossary-example {
+      margin-top: auto;
+      padding: 0.55rem 0.75rem;
+      background: var(--bg-deep);
+      border: 1px dashed rgba(148, 163, 184, 0.2);
+      border-radius: 5px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: var(--text-dim);
+    }
+
+    .glossary-example strong {
+      color: var(--amber);
+    }
+
+    .glossary-empty {
+      grid-column: 1 / -1;
+      padding: 2.5rem;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      background: var(--bg-panel);
+      border: 1px dashed rgba(148, 163, 184, 0.2);
+      border-radius: 8px;
+    }
+
+    /* ===== WHAT THIS DOES: Styles the interactive Quiz section, questions, and score summary ===== */
+    .quiz-wrapper {
+      width: 100%;
+      max-width: 750px;
+      margin-top: 1.5rem;
+    }
+
+    .quiz-card {
+      background: var(--bg-panel);
+      border: 1px solid rgba(34, 211, 238, 0.15);
+      border-radius: 10px;
+      padding: 2rem 2.25rem;
+      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.35);
+    }
+
+    .quiz-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    .quiz-progress-text strong {
+      color: var(--cyan);
+    }
+
+    .quiz-score-badge {
+      padding: 0.25rem 0.65rem;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 4px;
+      color: var(--amber);
+      font-weight: 700;
+    }
+
+    .quiz-progress-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--bg-deep);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 1.75rem;
+    }
+
+    .quiz-progress-fill {
+      height: 100%;
+      background: linear-gradient(to right, var(--cyan), var(--amber));
+      box-shadow: 0 0 10px var(--cyan-glow);
+      transition: width 0.3s ease-out;
+    }
+
+    .quiz-question-text {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .quiz-option-btn {
+      width: 100%;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+      padding: 0.9rem 1.1rem;
+      background: var(--bg-card);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.9rem;
+      text-align: left;
+      cursor: pointer;
+      line-height: 1.5;
+      transition: all 0.2s;
+    }
+
+    .quiz-option-btn:hover:not(:disabled) {
+      border-color: var(--cyan);
+      background: rgba(34, 211, 238, 0.08);
+      transform: translateX(3px);
+    }
+
+    .quiz-option-letter {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--cyan);
+      background: rgba(34, 211, 238, 0.12);
+      border: 1px solid rgba(34, 211, 238, 0.3);
+      border-radius: 4px;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* Correct and incorrect states */
+    .quiz-option-btn.correct {
+      background: rgba(52, 211, 153, 0.15) !important;
+      border-color: #34d399 !important;
+      color: #fff;
+      box-shadow: 0 0 12px rgba(52, 211, 153, 0.2);
+    }
+
+    .quiz-option-btn.correct .quiz-option-letter {
+      background: #34d399;
+      color: var(--bg-deep);
+      border-color: #34d399;
+    }
+
+    .quiz-option-btn.incorrect {
+      background: rgba(239, 68, 68, 0.15) !important;
+      border-color: #ef4444 !important;
+      color: #fca5a5;
+    }
+
+    .quiz-option-btn.incorrect .quiz-option-letter {
+      background: #ef4444;
+      color: #fff;
+      border-color: #ef4444;
+    }
+
+    .quiz-option-btn:disabled {
+      cursor: default;
+    }
+
+    /* Explanation reveal card */
+    .quiz-feedback {
+      padding: 1.1rem 1.3rem;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+      display: none;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .quiz-feedback.show {
+      display: block;
+    }
+
+    .quiz-feedback.is-correct {
+      background: rgba(52, 211, 153, 0.1);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      color: #d1fae5;
+    }
+
+    .quiz-feedback.is-incorrect {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fee2e2;
+    }
+
+    .quiz-feedback-title {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .quiz-feedback.is-correct .quiz-feedback-title { color: #34d399; }
+    .quiz-feedback.is-incorrect .quiz-feedback-title { color: #f87171; }
+
+    /* Next question button */
+    .quiz-next-btn {
+      display: none;
+      padding: 0.75rem 2rem;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--bg-deep);
+      background: var(--cyan);
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      box-shadow: 0 0 14px var(--cyan-glow);
+      transition: all 0.25s;
+      margin-left: auto;
+    }
+
+    .quiz-next-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 22px var(--cyan-glow);
+    }
+
+    .quiz-next-btn.show {
+      display: inline-block;
+    }
+
+    /* Final results screen */
+    .quiz-results {
+      text-align: center;
+      padding: 1.5rem 0.5rem;
+      display: none;
+    }
+
+    .quiz-results.show {
+      display: block;
+    }
+
+    .quiz-score-circle {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: rgba(34, 211, 238, 0.12);
+      border: 3px solid var(--cyan);
+      box-shadow: 0 0 25px var(--cyan-glow);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem auto;
+      font-family: var(--font-mono);
+    }
+
+    .quiz-score-number {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .quiz-score-total {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    .quiz-results-title {
+      font-family: var(--font-mono);
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.75rem;
+      text-shadow: 0 0 10px var(--cyan-glow);
+    }
+
+    .quiz-results-desc {
+      font-size: 0.95rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+      max-width: 500px;
+      margin: 0 auto 2rem auto;
+    }
+
+    .quiz-retry-btn {
+      padding: 0.75rem 2.2rem;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--bg-deep);
+      background: var(--amber);
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      box-shadow: 0 0 14px var(--amber-glow);
+      transition: all 0.25s;
+    }
+
+    .quiz-retry-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 22px var(--amber-glow);
+    }
+
+    /* ===== WHAT THIS DOES: Accessible keyboard focus states for all interactive elements ===== */
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    .stage-btn:focus-visible,
+    .attn-token-item:focus-visible,
+    .tf-node:focus-visible,
+    .tf-residual-tag:focus-visible {
+      outline: 2px solid var(--cyan) !important;
+      outline-offset: 3px !important;
+      box-shadow: 0 0 12px var(--cyan-glow) !important;
+    }
+
+    /* ===== WHAT THIS DOES: Mobile-friendly responsiveness for tablets and phones ===== */
+    @media (max-width: 768px) {
+      nav {
+        padding: 0.65rem 1rem;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .nav-links {
+        gap: 0.85rem;
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 0.3rem;
+        justify-content: flex-start;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .nav-links a {
+        font-size: 0.75rem;
+        white-space: nowrap;
+      }
+
+      .hero {
+        padding: 3rem 1rem;
+        min-height: 75vh;
+      }
+
+      .hero h1 {
+        font-size: 2rem;
+      }
+
+      .hero .tagline {
+        font-size: 0.95rem;
+        margin-bottom: 2rem;
+      }
+
+      .stats {
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+      }
+
+      .stat-value {
+        font-size: 1.8rem;
+      }
+
+      .section {
+        padding: 3.5rem 1rem;
+      }
+
+      .section h2 {
+        font-size: 1.5rem;
+      }
+
+      /* Stepper track on smaller screens */
+      .stepper-track {
+        gap: 0.35rem;
+      }
+
+      .stage-btn {
+        border-radius: 4px !important;
+        border-right: 1px solid rgba(148, 163, 184, 0.15) !important;
+        font-size: 0.68rem;
+        padding: 0.45rem 0.65rem;
+      }
+
+      .stage-detail {
+        padding: 1.25rem 1rem;
+      }
+
+      .stage-detail-name {
+        font-size: 1.1rem;
+      }
+
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+
+      /* Playground controls on mobile */
+      .pg-input-area, .pg-results, .pg-temperature, .pg-output {
+        padding: 1.1rem 1rem;
+      }
+
+      .pg-controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .preset-btn {
+        text-align: center;
+      }
+
+      .pg-run-btn {
+        margin-left: 0;
+        width: 100%;
+        padding: 0.65rem;
+      }
+
+      .bar-token {
+        min-width: 65px;
+        font-size: 0.75rem;
+      }
+
+      /* Attention on mobile */
+      .attn-panel {
+        padding: 1.25rem 1rem;
+      }
+
+      .attn-selector-btn {
+        width: 100%;
+        text-align: left;
+      }
+
+      .attn-tokens-track {
+        min-width: 550px;
+      }
+
+      /* Transformer on mobile */
+      .tf-container {
+        padding: 1.25rem 1rem;
+      }
+
+      .tf-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .tf-diagram-stage {
+        max-width: 100%;
+        overflow-x: auto;
+      }
+
+      .tf-spine {
+        margin-left: 35px;
+      }
+
+      /* Glossary on mobile */
+      .glossary-controls {
+        padding: 1rem;
+      }
+
+      .glossary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      /* Quiz on mobile */
+      .quiz-card {
+        padding: 1.25rem 1.1rem;
+      }
+
+      .quiz-question-text {
+        font-size: 0.98rem;
+      }
+
+      .quiz-option-btn {
+        padding: 0.75rem 0.85rem;
+        font-size: 0.82rem;
+      }
+    }
+
+    /* ===== WHAT THIS DOES: Respects user accessibility settings for reduced motion ===== */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
+
+      html {
+        scroll-behavior: auto !important;
+      }
+
+      .section {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+      }
+
+      .status-dot, .pg-output-cursor {
+        animation: none !important;
+        opacity: 1 !important;
+      }
+
+      .cta-btn:hover, .preset-btn:hover, .nav-btn:hover,
+      .qkv-card:hover, .glossary-card:hover, .quiz-option-btn:hover, .tf-node:hover {
+        transform: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav>
+    <div class="nav-logo">▲ LLM Explorer</div>
+    <ul class="nav-links">
+      <li><a href="#pipeline">Pipeline</a></li>
+      <li><a href="#playground">Playground</a></li>
+      <li><a href="#attention">Attention</a></li>
+      <li><a href="#transformer">Transformer</a></li>
+      <li><a href="#glossary">Glossary</a></li>
+      <li><a href="#quiz">Quiz</a></li>
+    </ul>
+  </nav>
+
+  <!-- ===== HERO SECTION ===== -->
+  <section class="hero">
+    <h1>LLM Pipeline Explorer</h1>
+    <p class="tagline">A visual, interactive journey through every stage of a large language model — from raw text to generated output.</p>
+
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-value" id="stat-stages">8</span>
+        <span class="stat-label">Stages</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="stat-layers">96+</span>
+        <span class="stat-label">Layers</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="stat-browser">100%</span>
+        <span class="stat-label">In Your Browser</span>
+      </div>
+    </div>
+
+    <a href="#pipeline" class="cta-btn">Start the Journey ↓</a>
+  </section>
+
+  <!-- ===== PLACEHOLDER SECTIONS ===== -->
+  <!-- ===== PIPELINE STEPPER ===== -->
+  <section class="section" id="pipeline">
+    <h2>Pipeline <span class="status-dot"></span></h2>
+
+    <div class="stepper-wrapper">
+      <!-- WHAT THIS DOES: The 8 stage buttons are rendered here by JavaScript -->
+      <div class="stepper-track" id="stepper-track"></div>
+
+      <!-- WHAT THIS DOES: Previous / Next buttons to step through stages -->
+      <div class="stepper-nav">
+        <button class="nav-btn" id="btn-prev" onclick="changeStage(-1)">◀ Previous</button>
+        <button class="nav-btn" id="btn-next" onclick="changeStage(1)">Next ▶</button>
+      </div>
+
+      <!-- WHAT THIS DOES: Shows the name, description, and placeholder for the active stage -->
+      <div class="stage-detail" id="stage-detail"></div>
+    </div>
+  </section>
+
+  <!-- ===== PLAYGROUND SECTION ===== -->
+  <section class="section" id="playground">
+    <h2>Playground <span class="status-dot"></span></h2>
+
+    <div class="playground-wrapper">
+      <!-- WHAT THIS DOES: Text area where you type or paste a prompt -->
+      <div class="pg-input-area">
+        <div class="pg-label">✏️ Enter a Prompt</div>
+        <textarea class="pg-textarea" id="pg-prompt" placeholder="Type a sentence here, or click a preset below…"></textarea>
+
+        <div class="pg-controls">
+          <button class="preset-btn" onclick="setPreset(0)">📖 Story opener</button>
+          <button class="preset-btn" onclick="setPreset(1)">🔬 Science question</button>
+          <button class="preset-btn" onclick="setPreset(2)">💻 Code request</button>
+          <button class="pg-run-btn" id="pg-run" onclick="runTokenizer()">▶ Run</button>
+        </div>
+      </div>
+
+      <!-- WHAT THIS DOES: Shows the tokenized output (chips + count) after Run is clicked -->
+      <div class="pg-results" id="pg-results">
+        <div class="pg-label">🔡 Tokenized Output</div>
+        <div class="pg-token-count" id="pg-token-count"></div>
+        <div class="pg-chips" id="pg-chips"></div>
+        <div class="pg-note">⚠ This is a simulation for learning, not a real model. Token IDs are generated by a simple hash — real tokenizers (like BPE) work differently.</div>
+      </div>
+
+      <!-- WHAT THIS DOES: Temperature slider + bar chart of top-5 next-token candidates -->
+      <div class="pg-temperature" id="pg-temperature">
+        <div class="pg-label">🌡️ Temperature &amp; Next-Token Prediction</div>
+
+        <div class="temp-slider-row">
+          <input type="range" class="temp-slider" id="temp-slider"
+                 min="0.1" max="1.5" step="0.05" value="0.7"
+                 oninput="onTempChange(this.value)">
+          <span class="temp-value" id="temp-display">0.70</span>
+        </div>
+        <div class="temp-labels">
+          <span>0.1 — Focused</span>
+          <span>1.5 — Creative</span>
+        </div>
+
+        <div class="bar-chart" id="bar-chart"></div>
+
+        <div class="temp-explanation" id="temp-explanation">
+          🔹 Low temperature → the top token dominates (predictable, safe output).
+          🔸 High temperature → probabilities spread out (creative, surprising output).
+        </div>
+      </div>
+
+      <!-- WHAT THIS DOES: Simulated Output box displaying word-by-word response, token count, and entropy -->
+      <div class="pg-output" id="pg-output">
+        <div class="pg-output-header">
+          <div class="pg-label">✨ Simulated Output</div>
+          <div class="pg-output-stats">
+            <span>Tokens: <strong id="output-token-count">0</strong></span>
+            <span>Entropy: <strong id="output-entropy">0.00 bits</strong></span>
+          </div>
+        </div>
+        <div class="pg-output-text" id="pg-output-text"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ATTENTION VISUALIZER SECTION ===== -->
+  <section class="section" id="attention">
+    <h2>Attention <span class="status-dot"></span></h2>
+
+    <div class="attn-wrapper">
+      <!-- WHAT THIS DOES: Controls for choosing the sentence and attention head -->
+      <div class="attn-panel">
+        <div class="attn-section-label">📜 Select Example Sentence</div>
+        <div class="attn-control-row" id="attn-sentence-buttons">
+          <button class="attn-selector-btn active" onclick="selectAttnSentence(0)">1. The wizard placed the book on the altar...</button>
+          <button class="attn-selector-btn" onclick="selectAttnSentence(1)">2. The astronaut fixed the telescope...</button>
+          <button class="attn-selector-btn" onclick="selectAttnSentence(2)">3. The red robot quickly scanned...</button>
+        </div>
+
+        <div class="attn-section-label">🧠 Select Attention Head</div>
+        <div class="attn-control-row" id="attn-head-buttons">
+          <button class="attn-selector-btn attn-head-btn active" onclick="selectAttnHead(0)">Head 1: Pronoun Reference</button>
+          <button class="attn-selector-btn attn-head-btn" onclick="selectAttnHead(1)">Head 2: Subject-Verb</button>
+          <button class="attn-selector-btn attn-head-btn" onclick="selectAttnHead(2)">Head 3: Modifiers</button>
+        </div>
+        <div class="attn-head-desc" id="attn-head-desc">
+          Resolves pronouns (like "it" or "she") to the actual nouns they represent in the sentence.
+        </div>
+
+        <!-- WHAT THIS DOES: Visual arc diagram showing attention connections from the clicked token -->
+        <div class="attn-section-label" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>🔗 Token Connections</span>
+          <span style="font-size:0.7rem; color:var(--text-dim); text-transform:none;">Click any word below to inspect its attention</span>
+        </div>
+
+        <div class="attn-arc-container" id="attn-arc-container">
+          <svg class="attn-arc-svg" id="attn-arc-svg"></svg>
+          <div class="attn-tokens-track" id="attn-tokens-track"></div>
+        </div>
+
+        <!-- WHAT THIS DOES: Full N x N attention matrix heatmap -->
+        <div class="attn-heatmap-section">
+          <div class="attn-section-label">🗺️ Full Attention Matrix (Heatmap)</div>
+          <div class="attn-heatmap-scroll">
+            <table class="attn-matrix" id="attn-matrix-table"></table>
+          </div>
+          <div class="attn-legend">
+            <span>0% Attention</span>
+            <div class="attn-legend-bar"></div>
+            <span>100% Attention</span>
+          </div>
+        </div>
+
+        <!-- WHAT THIS DOES: Explains Query, Key, and Value in plain English with short examples -->
+        <div class="attn-section-label" style="margin-top: 2rem;">💡 Query, Key &amp; Value Explained</div>
+        <div class="qkv-grid">
+          <!-- Query Card -->
+          <div class="qkv-card query">
+            <div class="qkv-header">
+              <span class="qkv-letter">Q</span>
+              <span class="qkv-title">Query</span>
+            </div>
+            <div class="qkv-hook">"What am I looking for?"</div>
+            <p class="qkv-body">
+              The question a token asks when seeking context from other words. It specifies what type of relationship or meaning it wants to connect with.
+            </p>
+            <div class="qkv-example">
+              <strong>Example:</strong> In <em>"The wizard placed the book on the altar because it was sacred"</em>, the word <strong>"it"</strong> queries: <em>"Which previous noun is the thing that is sacred?"</em>
+            </div>
+          </div>
+
+          <!-- Key Card -->
+          <div class="qkv-card key">
+            <div class="qkv-header">
+              <span class="qkv-letter">K</span>
+              <span class="qkv-title">Key</span>
+            </div>
+            <div class="qkv-hook">"What information do I have?"</div>
+            <p class="qkv-body">
+              The tag or label every token broadcasts like a name tag, advertising its identity, grammatical role, and features to other tokens.
+            </p>
+            <div class="qkv-example">
+              <strong>Example:</strong> The token <strong>"altar"</strong> advertises: <em>"I am a singular holy object"</em>, whereas <strong>"book"</strong> advertises: <em>"I am a portable reading object"</em>.
+            </div>
+          </div>
+
+          <!-- Value Card -->
+          <div class="qkv-card value">
+            <div class="qkv-header">
+              <span class="qkv-letter">V</span>
+              <span class="qkv-title">Value</span>
+            </div>
+            <div class="qkv-hook">"What content do I share?"</div>
+            <p class="qkv-body">
+              The actual informational payload. When a Query strongly matches a Key, that token's Value vector is retrieved and blended into the Query token.
+            </p>
+            <div class="qkv-example">
+              <strong>Example:</strong> Because <strong>"it"</strong> matches the Key for <strong>"altar"</strong>, the rich meaning of <em>"altar"</em> gets mixed into the representation of <em>"it"</em>.
+            </div>
+          </div>
+        </div>
+
+        <!-- WHAT THIS DOES: Displays the Attention formula and explains the sqrt(d_k) scaling factor -->
+        <div class="attn-formula-card">
+          <div class="attn-section-label" style="margin-bottom:0.6rem;">📐 The Scaled Dot-Product Attention Formula</div>
+          <div class="attn-formula-display">
+            Attention(Q, K, V) = softmax( (Q · K<sup>T</sup>) / √d<sub>k</sub> ) · V
+          </div>
+          <p class="attn-formula-note">
+            <strong>Why divide by √d<sub>k</sub>?</strong> When the vector dimension (<em>d<sub>k</sub></em>) is large (e.g., 64, 128, or more), computing the dot product between <em>Q</em> and <em>K</em> results in very large numbers. Feeding huge numbers into the <em>softmax</em> function forces its outputs to become extremely peaked (one value near 1.0 and all others near 0), which causes the mathematical gradients to become dangerously tiny (the "vanishing gradient" problem). Dividing by <strong>√d<sub>k</sub></strong> scales the variance back down to 1.0, preserving healthy gradients so the model can train and learn smoothly.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TRANSFORMER SECTION ===== -->
+  <section class="section" id="transformer">
+    <h2>Transformer <span class="status-dot"></span></h2>
+
+    <div class="tf-wrapper">
+      <div class="tf-container">
+        <div class="tf-layout">
+
+          <!-- Left column: Vertical Architecture Diagram -->
+          <div class="tf-diagram-stage" id="tf-diagram-stage">
+            <!-- SVG overlay for residual skip paths and directional arrows -->
+            <svg class="tf-svg-overlay" viewBox="0 0 340 470" preserveAspectRatio="none">
+              <defs>
+                <marker id="arrow-amber" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
+                </marker>
+                <marker id="arrow-cyan" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1 L 10 5 L 0 9 z" fill="#22d3ee" />
+                </marker>
+              </defs>
+
+              <!-- Skip Connection 1 (around Multi-Head Attention to Add & Norm 1) -->
+              <path d="M 80 405 C 25 405, 25 295, 78 295"
+                    fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="4 2"
+                    marker-end="url(#arrow-amber)" filter="drop-shadow(0 0 6px rgba(245, 158, 11, 0.6))" />
+
+              <!-- Skip Connection 2 (around FFN to Add & Norm 2) -->
+              <path d="M 80 235 C 25 235, 25 125, 78 125"
+                    fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="4 2"
+                    marker-end="url(#arrow-amber)" filter="drop-shadow(0 0 6px rgba(245, 158, 11, 0.6))" />
+            </svg>
+
+            <!-- Residual connection clickable tags on the bypass path -->
+            <div class="tf-residual-tag tag-top" onclick="selectTransformerPart('res2')">⚡ Residual (x + FFN)</div>
+            <div class="tf-residual-tag tag-bottom" onclick="selectTransformerPart('res1')">⚡ Residual (x + MHA)</div>
+
+            <!-- Vertical spine of layers (Bottom to Top dataflow) -->
+            <div class="tf-spine">
+              <!-- Top: Block Output -->
+              <div class="tf-node io" id="tf-node-out" onclick="selectTransformerPart('out')">
+                ▲ Output (To Layer L+1)
+              </div>
+
+              <div class="tf-arrow-down">▲</div>
+
+              <!-- Layer 5: Add & Norm (2) -->
+              <div class="tf-node norm" id="tf-node-norm2" onclick="selectTransformerPart('norm2')">
+                ➕ Add &amp; Norm (2)
+              </div>
+
+              <div class="tf-arrow-down">▲</div>
+
+              <!-- Layer 4: Feed-Forward Network -->
+              <div class="tf-node ffn" id="tf-node-ffn" onclick="selectTransformerPart('ffn')">
+                🧠 Feed-Forward Network (FFN)
+              </div>
+
+              <div class="tf-arrow-down">▲</div>
+
+              <!-- Layer 3: Add & Norm (1) -->
+              <div class="tf-node norm" id="tf-node-norm1" onclick="selectTransformerPart('norm1')">
+                ➕ Add &amp; Norm (1)
+              </div>
+
+              <div class="tf-arrow-down">▲</div>
+
+              <!-- Layer 2: Multi-Head Attention -->
+              <div class="tf-node mha active" id="tf-node-mha" onclick="selectTransformerPart('mha')">
+                🔍 Multi-Head Attention
+              </div>
+
+              <div class="tf-arrow-down">▲</div>
+
+              <!-- Bottom: Embedding + Positional Encoding -->
+              <div class="tf-node io" id="tf-node-emb" onclick="selectTransformerPart('emb')">
+                📦 Embedding + Positional Encoding
+              </div>
+            </div>
+          </div>
+
+          <!-- Right column: Interactive Detail Panel -->
+          <div class="tf-detail-panel" id="tf-detail-panel">
+            <div class="tf-detail-header">
+              <span class="tf-detail-icon" id="tf-detail-icon">🔍</span>
+              <span class="tf-detail-title" id="tf-detail-title">Multi-Head Attention</span>
+            </div>
+            <p class="tf-detail-desc" id="tf-detail-desc">
+              Allows each token to look at and gather information from all other tokens in the sequence simultaneously across multiple representation subspaces.
+            </p>
+            <div class="tf-detail-why" id="tf-detail-why">
+              <strong>Why it's essential:</strong> Without attention, tokens are processed in total isolation. Attention is what injects dynamic context, syntax, and relational meaning.
+            </div>
+            <div class="tf-detail-math" id="tf-detail-math">
+              MultiHead(Q,K,V) = Concat(head_1, ..., head_h) · W_O
+            </div>
+          </div>
+
+          <!-- Bottom: Stacking note banner -->
+          <div class="tf-stacking-note">
+            🏗️ <strong>Stacking at Scale:</strong> Real-world frontier models do not rely on just one block — they stack <em>32 to 96+</em> of these identical transformer blocks directly on top of each other! For example, <em>Llama 3 8B</em> stacks 32 layers, <em>GPT-3</em> stacks 96 layers, and <em>Llama 3 405B</em> stacks 126 layers. Early layers identify basic syntax and punctuation, middle layers resolve entity relationships and facts, and deep layers handle multi-step reasoning and abstract synthesis.
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== GLOSSARY SECTION ===== -->
+  <section class="section" id="glossary">
+    <h2>Glossary <span class="status-dot"></span></h2>
+
+    <div class="glossary-wrapper">
+      <!-- WHAT THIS DOES: Search box and category filter controls -->
+      <div class="glossary-controls">
+        <div class="glossary-search-box">
+          <span class="glossary-search-icon">🔍</span>
+          <input type="text" class="glossary-search-input" id="glossary-search"
+                 placeholder="Search terms or definitions (e.g. token, softmax, temperature)…"
+                 oninput="onGlossarySearch(this.value)">
+        </div>
+
+        <div class="glossary-filter-row">
+          <div class="glossary-filter-group" id="glossary-filter-buttons">
+            <button class="glossary-filter-btn active" onclick="setGlossaryCategory('all')">All Terms</button>
+            <button class="glossary-filter-btn" onclick="setGlossaryCategory('arch')">Architecture</button>
+            <button class="glossary-filter-btn" onclick="setGlossaryCategory('mech')">Mechanics</button>
+            <button class="glossary-filter-btn" onclick="setGlossaryCategory('samp')">Sampling &amp; Output</button>
+          </div>
+          <div class="glossary-counter">
+            Showing <strong id="glossary-count">0</strong> terms
+          </div>
+        </div>
+      </div>
+
+      <!-- WHAT THIS DOES: Grid container where glossary cards are injected by JavaScript -->
+      <div class="glossary-grid" id="glossary-grid"></div>
+    </div>
+  </section>
+
+  <!-- ===== QUIZ SECTION ===== -->
+  <section class="section" id="quiz">
+    <h2>Knowledge Quiz <span class="status-dot"></span></h2>
+
+    <div class="quiz-wrapper">
+      <!-- Active Question Container -->
+      <div class="quiz-card" id="quiz-question-card">
+        <div class="quiz-header">
+          <span class="quiz-progress-text">Question <strong id="quiz-q-num">1</strong> of 6</span>
+          <span class="quiz-score-badge">Score: <span id="quiz-live-score">0</span></span>
+        </div>
+
+        <div class="quiz-progress-bar">
+          <div class="quiz-progress-fill" id="quiz-progress-fill" style="width: 16.6%;"></div>
+        </div>
+
+        <div class="quiz-question-text" id="quiz-question-text"></div>
+
+        <div class="quiz-options" id="quiz-options"></div>
+
+        <div class="quiz-feedback" id="quiz-feedback">
+          <div class="quiz-feedback-title" id="quiz-feedback-title"></div>
+          <div class="quiz-feedback-text" id="quiz-feedback-text"></div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end;">
+          <button class="quiz-next-btn" id="quiz-next-btn" onclick="nextQuizQuestion()">Next Question ▶</button>
+        </div>
+      </div>
+
+      <!-- Final Results Container (shown after question 6) -->
+      <div class="quiz-card quiz-results" id="quiz-results-card">
+        <div class="quiz-score-circle">
+          <span class="quiz-score-number" id="quiz-final-score">0</span>
+          <span class="quiz-score-total">out of 6</span>
+        </div>
+        <div class="quiz-results-title" id="quiz-results-title">Quiz Complete!</div>
+        <p class="quiz-results-desc" id="quiz-results-desc"></p>
+        <button class="quiz-retry-btn" onclick="resetQuiz()">🔄 Try Again</button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // WHAT THIS DOES: Animates the stat counters from 0 up to their final value
+    // when the hero section is first visible on screen (respects reduced motion).
+    function animateCounter(element, endText) {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        element.textContent = endText;
+        return;
+      }
+
+      const numericPart = parseInt(endText);
+      const suffix = endText.replace(/[0-9]/g, '');   // e.g. "+", "%"
+      let current = 0;
+      const duration = 1200;
+      const stepTime = duration / numericPart;
+
+      const timer = setInterval(() => {
+        current++;
+        element.textContent = current + suffix;
+        if (current >= numericPart) {
+          clearInterval(timer);
+          element.textContent = endText;  // restore exact original text
+        }
+      }, stepTime);
+    }
+
+    // WHAT THIS DOES: Uses IntersectionObserver to start the counter animation
+    // only when the hero section scrolls into view (runs once).
+    const heroSection = document.querySelector('.hero');
+    let countersAnimated = false;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && !countersAnimated) {
+          countersAnimated = true;
+          animateCounter(document.getElementById('stat-stages'),  '8');
+          animateCounter(document.getElementById('stat-layers'),  '96+');
+          animateCounter(document.getElementById('stat-browser'), '100%');
+        }
+      });
+    }, { threshold: 0.3 });
+
+    observer.observe(heroSection);
+
+    // WHAT THIS DOES: Highlights the active navbar link and triggers
+    // the scroll fade-in animation as each section enters the viewport.
+    const sections = document.querySelectorAll('.section');
+    const navLinks = document.querySelectorAll('.nav-links a');
+
+    const sectionObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          // Trigger the scroll fade-in
+          entry.target.classList.add('is-visible');
+
+          // Highlight corresponding navbar link
+          const id = entry.target.getAttribute('id');
+          navLinks.forEach(link => {
+            if (link.getAttribute('href') === '#' + id) {
+              link.style.color = 'var(--cyan)';
+              link.style.textShadow = '0 0 8px var(--cyan-glow)';
+            } else {
+              link.style.color = '';
+              link.style.textShadow = '';
+            }
+          });
+        }
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+    sections.forEach(sec => sectionObserver.observe(sec));
+
+    // ============================================================
+    //  PIPELINE STEPPER
+    // ============================================================
+
+    // WHAT THIS DOES: Stores all 8 stages in one easy-to-edit array.
+    // Each object has: name, desc, what (what it does), why (why it matters),
+    // analogy (simple real-world comparison), dataIn and dataOut (before/after example).
+    // To change a stage, just edit the text in this array.
+    const stages = [
+      {
+        name: "User Input",
+        desc: "The raw text prompt you type — this is where the pipeline begins.",
+        what: "This stage captures the exact string of characters you type or paste into the prompt box. Nothing is changed yet — the model receives your text exactly as written, including spaces, punctuation, and typos.",
+        why: "Everything downstream depends on this input. A clear, well-structured prompt leads to better results, while an ambiguous one can send the model in the wrong direction. This is the only stage you directly control.",
+        analogy: "Think of placing an order at a restaurant. The words you say to the waiter are the input — the kitchen (the model) hasn't started cooking yet. The clearer your order, the better your meal.",
+        dataIn: "Hello, world!",
+        dataOut: "\"Hello, world!\"  (unchanged string)"
+      },
+      {
+        name: "Tokenization",
+        desc: "Splits your text into smaller pieces called tokens (words, sub-words, or characters).",
+        what: "A tokenizer breaks your text into a list of tokens — usually common words, word fragments, or individual characters. Each token is then mapped to a unique integer ID from a fixed vocabulary (typically 32k–100k entries).",
+        why: "Neural networks can't read letters — they need numbers. Tokenization is the bridge between human language and math. The way text is split also affects how much context the model can see within its limited window.",
+        analogy: "Imagine cutting a sentence into fridge-magnet words. Common words stay whole (\"the\"), but rare words get split into smaller pieces (\"un\" + \"believ\" + \"able\"). Each magnet has a number on the back.",
+        dataIn: "\"Hello, world!\"",
+        dataOut: "[15496, 11, 995, 0]  (token IDs)"
+      },
+      {
+        name: "Embeddings",
+        desc: "Converts each token into a high-dimensional number vector that captures its meaning.",
+        what: "Each token ID is used to look up a row in a large embedding table. The result is a vector — a list of hundreds or thousands of numbers — that represents that token's meaning, relationships, and context potential. Positional embeddings are also added so the model knows each token's position in the sequence.",
+        why: "A single ID like 15496 doesn't tell the model anything about meaning. The embedding vector places each token in a space where similar concepts are nearby — \"king\" is close to \"queen\", \"dog\" is close to \"puppy\". This is how the model starts to understand language.",
+        analogy: "It's like giving each word GPS coordinates in a giant map of meanings. Words with similar meanings end up near each other on the map, so the model can tell that \"happy\" and \"joyful\" live in the same neighbourhood.",
+        dataIn: "[15496, 11, 995, 0]  (token IDs)",
+        dataOut: "[[0.12, -0.74, …], [0.33, 0.51, …], …]  (vectors)"
+      },
+      {
+        name: "Transformer",
+        desc: "Passes the embeddings through dozens of transformer blocks that mix and refine information.",
+        what: "The core of the model: a stack of repeated transformer blocks (GPT-3 has 96). Each block first runs multi-head attention to let tokens share information, then passes the result through a feed-forward neural network that processes each token independently. Layer normalization and residual connections keep training stable.",
+        why: "One pass isn't enough to understand complex language. Each layer builds a richer, more abstract representation — early layers capture grammar and syntax, middle layers capture meaning and relationships, and final layers prepare for prediction.",
+        analogy: "Picture a team of editors reviewing a draft in sequence. The first editor checks spelling, the next checks grammar, the next checks logical flow, and so on. After dozens of passes, the draft is polished and ready for a final decision.",
+        dataIn: "[[0.12, -0.74, …], …]  (raw embeddings)",
+        dataOut: "[[0.87, 0.11, …], …]  (refined embeddings)"
+      },
+      {
+        name: "Attention",
+        desc: "Inside each transformer block, attention lets every token look at every other token to understand context.",
+        what: "For each token, attention computes three things — a Query (what am I looking for?), a Key (what do I contain?), and a Value (what info do I share?). The Query of one token is compared against the Keys of all tokens to produce attention weights, which are used to blend all the Values. Multi-head attention runs several of these in parallel to capture different types of relationships.",
+        why: "Without attention, each token would only know about itself. Attention is what lets the model understand that in \"The cat sat on the mat because it was tired\", the word \"it\" refers to \"cat\" — not \"mat\". It's the core mechanism that makes transformers so powerful.",
+        analogy: "Imagine reading a sentence and highlighting which earlier words each word is paying attention to. The word \"it\" would draw a bright highlight on \"cat\" and barely any on \"mat\". Attention is the model doing this highlighting automatically for every word at once.",
+        dataIn: "[[0.87, 0.11, …], …]  (from previous layer)",
+        dataOut: "[[0.65, 0.42, …], …]  (context-enriched vectors)"
+      },
+      {
+        name: "Logits",
+        desc: "The model outputs a raw score (logit) for every possible next token in its vocabulary.",
+        what: "The final transformer output for the last token position is multiplied by the model's vocabulary weight matrix. This produces one number (a logit) for every token in the vocabulary — for example, 50,257 numbers if using GPT-2's vocabulary. Higher logits mean the model thinks that token is a more likely continuation.",
+        why: "The model needs a way to rank every possible next word. Logits are those raw rankings. They are not probabilities yet (they can be negative or greater than 1), but they capture the model's relative confidence for each option.",
+        analogy: "It's like a talent-show judge giving every contestant a raw score on a notepad. The scores aren't percentages yet — just gut-feeling numbers. A score of 12.5 is better than 3.1, but we still need to convert them to meaningful rankings.",
+        dataIn: "[0.65, 0.42, …]  (last token's vector)",
+        dataOut: "[2.1, -0.5, 8.7, …]  (50,257 raw scores)"
+      },
+      {
+        name: "Sampling",
+        desc: "A strategy (greedy, top-k, temperature) picks the next token from those scores.",
+        what: "The logits are converted to probabilities using the softmax function (each score becomes a number between 0 and 1, and they all add up to 1). Then a sampling strategy selects the next token: greedy picks the highest-probability token, top-k picks randomly from the k most likely, and temperature controls randomness (low = predictable, high = creative).",
+        why: "If the model always picked the single highest-scoring token (greedy), the output would be repetitive and boring. Sampling strategies add controlled randomness that makes the text more natural, creative, and varied — while still staying coherent.",
+        analogy: "Imagine a spinner wheel where each slice is a possible next word, sized by probability. Temperature adjusts the wheel: low temperature makes the biggest slice dominate (safe, predictable), high temperature makes the slices more equal (wild, surprising).",
+        dataIn: "[2.1, -0.5, 8.7, …]  (raw logits)",
+        dataOut: "Token 995  (selected token ID)"
+      },
+      {
+        name: "Final Output",
+        desc: "The chosen tokens are decoded back into human-readable text — your answer appears!",
+        what: "The selected token ID is converted back to its text form using the vocabulary's reverse lookup. This decoded token is appended to the output and also fed back into the pipeline as new input, so the whole process repeats to generate the next token. This auto-regressive loop continues until the model emits a special stop token or hits a maximum length.",
+        why: "Without decoding, you'd just see a stream of numbers. This stage closes the loop: the model's math becomes the words you read on screen. The auto-regressive design is why LLMs generate one token at a time (even if it looks instant).",
+        analogy: "It's like a translator converting a secret code back to English, one word at a time. Each decoded word is also whispered back to the code-maker so they know what to say next — the conversation builds word by word.",
+        dataIn: "Token 995",
+        dataOut: "\" world\"  → appended to form \"Hello, world\""
+      }
+    ];
+
+    // WHAT THIS DOES: Keeps track of which stage (0–7) is currently selected.
+    let currentStage = 0;
+
+    // WHAT THIS DOES: Builds the row of 8 clickable stage buttons from the array above.
+    function renderStepperButtons() {
+      const track = document.getElementById('stepper-track');
+      track.innerHTML = '';
+
+      stages.forEach(function (stage, index) {
+        const btn = document.createElement('button');
+        btn.className = 'stage-btn';
+        btn.textContent = stage.name;
+
+        if (index === currentStage) {
+          btn.classList.add('active');
+        } else if (index < currentStage) {
+          btn.classList.add('completed');
+        }
+
+        btn.addEventListener('click', function () {
+          currentStage = index;
+          updateStepper();
+        });
+
+        track.appendChild(btn);
+      });
+    }
+
+    // WHAT THIS DOES: Updates the detail panel below the buttons to show
+    // the stage name, description, and four info boxes (what, why, analogy, data flow).
+    function renderDetailPanel() {
+      var panel = document.getElementById('stage-detail');
+      var stage = stages[currentStage];
+
+      panel.innerHTML =
+        '<div class="stage-detail-header">' +
+          '<span class="stage-detail-number">' + (currentStage + 1) + '</span>' +
+          '<span class="stage-detail-name">' + stage.name + '</span>' +
+        '</div>' +
+        '<p class="stage-detail-desc">' + stage.desc + '</p>' +
+
+        '<div class="info-grid">' +
+
+          // Box 1: What this stage does
+          '<div class="info-box what">' +
+            '<div class="info-box-label">📘 What This Stage Does</div>' +
+            '<div class="info-box-text">' + stage.what + '</div>' +
+          '</div>' +
+
+          // Box 2: Why it matters
+          '<div class="info-box why">' +
+            '<div class="info-box-label">⚡ Why It Matters</div>' +
+            '<div class="info-box-text">' + stage.why + '</div>' +
+          '</div>' +
+
+          // Box 3: Simple analogy
+          '<div class="info-box analogy">' +
+            '<div class="info-box-label">💡 Simple Analogy</div>' +
+            '<div class="info-box-text">' + stage.analogy + '</div>' +
+          '</div>' +
+
+          // Box 4: Data in → Data out
+          '<div class="info-box data">' +
+            '<div class="info-box-label">🔀 Data In → Data Out</div>' +
+            '<div class="data-flow">' +
+              '<span class="data-tag">' + stage.dataIn + '</span>' +
+              '<span class="data-arrow">→</span>' +
+              '<span class="data-tag">' + stage.dataOut + '</span>' +
+            '</div>' +
+          '</div>' +
+
+        '</div>';
+    }
+
+    // WHAT THIS DOES: Disables the Previous button on the first stage
+    // and the Next button on the last stage so you can't go out of bounds.
+    function updateNavButtons() {
+      document.getElementById('btn-prev').disabled = (currentStage === 0);
+      document.getElementById('btn-next').disabled = (currentStage === stages.length - 1);
+    }
+
+    // WHAT THIS DOES: Calls all three functions above to refresh everything at once.
+    function updateStepper() {
+      renderStepperButtons();
+      renderDetailPanel();
+      updateNavButtons();
+    }
+
+    // WHAT THIS DOES: Moves one stage forward (+1) or backward (-1)
+    // when the Next or Previous button is clicked.
+    function changeStage(direction) {
+      const newIndex = currentStage + direction;
+      if (newIndex >= 0 && newIndex < stages.length) {
+        currentStage = newIndex;
+        updateStepper();
+      }
+    }
+
+    // WHAT THIS DOES: Draws the stepper for the first time when the page loads.
+    updateStepper();
+
+    // ============================================================
+    //  PLAYGROUND — SIMULATED TOKENIZER
+    // ============================================================
+
+    // WHAT THIS DOES: Three preset prompts the user can load with one click.
+    var presets = [
+      "Once upon a time in a distant galaxy, a young explorer discovered a hidden signal.",
+      "What is photosynthesis and why is it important for life on Earth?",
+      "Write a Python function that reverses a string without using slicing."
+    ];
+
+    // WHAT THIS DOES: Fills the text area with the chosen preset prompt.
+    function setPreset(index) {
+      document.getElementById('pg-prompt').value = presets[index];
+    }
+
+    // WHAT THIS DOES: Generates a consistent fake token ID from a string.
+    // The same word always produces the same number (simple hash).
+    function hashToken(str) {
+      var hash = 0;
+      for (var i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+      }
+      return Math.abs(hash) % 50257;   // keep it in a GPT-2-sized vocab range
+    }
+
+    // WHAT THIS DOES: A simple simulated tokenizer.
+    // 1. Splits on spaces to get words.
+    // 2. Keeps punctuation attached (like real BPE often does).
+    // 3. Breaks long words (> 6 chars) into smaller sub-word pieces
+    //    to mimic how real tokenizers split rare/long words.
+    function simpleTokenize(text) {
+      if (!text.trim()) return [];
+
+      var rawWords = text.trim().split(/\s+/);
+      var tokens = [];
+
+      rawWords.forEach(function (word) {
+        // Split punctuation off the edges (but keep it as its own token)
+        var parts = word.match(/^([^\w]*)(.+?)([^\w]*)$/);
+        if (!parts) {
+          tokens.push(word);
+          return;
+        }
+
+        var leading  = parts[1];   // e.g. opening quote
+        var core     = parts[2];   // the main word
+        var trailing = parts[3];   // e.g. comma, period
+
+        if (leading)  tokens.push(leading);
+
+        // Break long core words into sub-word pieces (chunks of 4–6 chars)
+        if (core.length > 6) {
+          var chunkSize = 4;
+          var pos = 0;
+          while (pos < core.length) {
+            var end = Math.min(pos + chunkSize, core.length);
+            var piece = core.slice(pos, end);
+            // Mark continuation pieces with "##" like some tokenizers do
+            if (pos > 0) piece = '##' + piece;
+            tokens.push(piece);
+            pos = end;
+          }
+        } else {
+          tokens.push(core);
+        }
+
+        if (trailing) tokens.push(trailing);
+      });
+
+      return tokens;
+    }
+
+    // WHAT THIS DOES: A palette of 8 colours used to colour-code the token chips.
+    // Each chip gets a colour based on its hash, so the same word always gets the same colour.
+    var chipColours = [
+      { bg: 'rgba(34,211,238,0.18)',  border: 'rgba(34,211,238,0.5)',  text: '#22d3ee' },
+      { bg: 'rgba(245,158,11,0.18)',  border: 'rgba(245,158,11,0.5)', text: '#f59e0b' },
+      { bg: 'rgba(167,139,250,0.18)', border: 'rgba(167,139,250,0.5)', text: '#a78bfa' },
+      { bg: 'rgba(52,211,153,0.18)',  border: 'rgba(52,211,153,0.5)', text: '#34d399' },
+      { bg: 'rgba(251,113,133,0.18)', border: 'rgba(251,113,133,0.5)', text: '#fb7185' },
+      { bg: 'rgba(96,165,250,0.18)',  border: 'rgba(96,165,250,0.5)', text: '#60a5fa' },
+      { bg: 'rgba(253,186,116,0.18)', border: 'rgba(253,186,116,0.5)', text: '#fdba74' },
+      { bg: 'rgba(192,132,252,0.18)', border: 'rgba(192,132,252,0.5)', text: '#c084fc' }
+    ];
+
+    // WHAT THIS DOES: Runs the tokenizer when the user clicks the Run button.
+    // It tokenizes the prompt, then renders each token as a coloured chip
+    // with its text and fake ID, and shows the total count.
+    function runTokenizer() {
+      var text = document.getElementById('pg-prompt').value;
+      var tokens = simpleTokenize(text);
+
+      var results = document.getElementById('pg-results');
+      var chipsEl = document.getElementById('pg-chips');
+      var countEl = document.getElementById('pg-token-count');
+
+      if (tokens.length === 0) {
+        results.classList.remove('visible');
+        return;
+      }
+
+      // Build chips HTML
+      var html = '';
+      tokens.forEach(function (tok, i) {
+        var id = hashToken(tok.toLowerCase());
+        var colour = chipColours[id % chipColours.length];
+        var delay = i * 40;    // stagger the fade-in animation
+
+        html +=
+          '<div class="pg-chip" style="' +
+            'background:' + colour.bg + ';' +
+            'border:1px solid ' + colour.border + ';' +
+            'animation-delay:' + delay + 'ms;">' +
+            '<span class="pg-chip-text" style="color:' + colour.text + '">' +
+              tok.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+            '</span>' +
+            '<span class="pg-chip-id" style="color:' + colour.text + '">' + id + '</span>' +
+          '</div>';
+      });
+
+      chipsEl.innerHTML = html;
+      countEl.innerHTML = 'Token count: <strong>' + tokens.length + '</strong>';
+      results.classList.add('visible');
+
+      // WHAT THIS DOES: After tokenizing, generate fake logits for next-token
+      // candidates and show the temperature bar chart.
+      generateLogitsAndShowChart(tokens);
+
+      // WHAT THIS DOES: Starts typing out the simulated response word by word.
+      startTypingOutput();
+    }
+
+    // ============================================================
+    //  TEMPERATURE & NEXT-TOKEN BAR CHART
+    // ============================================================
+
+    // WHAT THIS DOES: A list of plausible "next token" candidates.
+    // We pick 5 based on the last token of the prompt to keep it feeling contextual.
+    var candidatePools = {
+      story:    [ {t: "was",  l: 5.2}, {t: "had",   l: 3.8}, {t: "the",  l: 3.1}, {t: "and",  l: 2.4}, {t: "she",  l: 1.9} ],
+      question: [ {t: "is",   l: 5.5}, {t: "the",   l: 3.4}, {t: "it",   l: 3.0}, {t: "a",    l: 2.6}, {t: "that", l: 1.7} ],
+      code:     [ {t: "def",  l: 5.8}, {t: "return", l: 3.9}, {t: "for",  l: 3.2}, {t: "str",  l: 2.5}, {t: "if",   l: 2.0} ],
+      general:  [ {t: "the",  l: 4.9}, {t: "is",    l: 3.6}, {t: "and",  l: 3.0}, {t: "of",   l: 2.3}, {t: "to",   l: 1.8} ]
+    };
+
+    // WHAT THIS DOES: Stores the current set of logits so the slider can
+    // recalculate probabilities without pressing Run again.
+    var currentLogits = [];
+
+    // WHAT THIS DOES: Picks a candidate pool based on what the prompt looks like,
+    // then adds small random noise to the logits so each Run feels slightly different.
+    function generateLogitsAndShowChart(tokens) {
+      var text = document.getElementById('pg-prompt').value.toLowerCase();
+      var pool;
+
+      if (text.indexOf('once upon') >= 0 || text.indexOf('story') >= 0 || text.indexOf('galaxy') >= 0) {
+        pool = candidatePools.story;
+      } else if (text.indexOf('?') >= 0 || text.indexOf('what') >= 0 || text.indexOf('why') >= 0 || text.indexOf('how') >= 0) {
+        pool = candidatePools.question;
+      } else if (text.indexOf('function') >= 0 || text.indexOf('code') >= 0 || text.indexOf('python') >= 0 || text.indexOf('write') >= 0) {
+        pool = candidatePools.code;
+      } else {
+        pool = candidatePools.general;
+      }
+
+      // Add small noise so it's not identical every run
+      currentLogits = pool.map(function (c) {
+        return {
+          token: c.t,
+          logit: c.l + (Math.random() - 0.5) * 0.6
+        };
+      });
+
+      // Sort by logit descending
+      currentLogits.sort(function (a, b) { return b.logit - a.logit; });
+
+      // Show the chart and update bars
+      document.getElementById('pg-temperature').classList.add('visible');
+      var temp = parseFloat(document.getElementById('temp-slider').value);
+      renderBarChart(temp);
+    }
+
+    // WHAT THIS DOES: Real softmax function.
+    // 1. Divides each logit by the temperature.
+    // 2. Subtracts the max for numerical stability (prevents overflow).
+    // 3. Exponentiates each value and divides by the sum.
+    function softmax(logits, temperature) {
+      var scaled = logits.map(function (l) { return l / temperature; });
+      var maxVal = Math.max.apply(null, scaled);
+      var exps = scaled.map(function (s) { return Math.exp(s - maxVal); });
+      var sumExps = exps.reduce(function (a, b) { return a + b; }, 0);
+      return exps.map(function (e) { return e / sumExps; });
+    }
+
+    // WHAT THIS DOES: Calculates Shannon entropy (in bits) from probability distribution.
+    // Low temperature -> narrow peak -> low entropy (predictable).
+    // High temperature -> flat distribution -> higher entropy (uncertain).
+    function calculateEntropy(probs) {
+      var entropy = 0;
+      for (var i = 0; i < probs.length; i++) {
+        if (probs[i] > 0) {
+          entropy -= probs[i] * (Math.log(probs[i]) / Math.LN2);
+        }
+      }
+      return Math.max(0, entropy);
+    }
+
+    // WHAT THIS DOES: Colours for the 5 bars (top bar is cyan, rest fade toward dimmer colours).
+    var barColours = [
+      { fill: 'var(--cyan)',  text: 'var(--cyan)'  },
+      { fill: 'var(--amber)', text: 'var(--amber)' },
+      { fill: '#a78bfa',      text: '#a78bfa'      },
+      { fill: '#34d399',      text: '#34d399'      },
+      { fill: '#60a5fa',      text: '#60a5fa'      }
+    ];
+
+    // WHAT THIS DOES: Draws the top-5 horizontal bar chart using the current logits
+    // and the given temperature. Also updates the entropy display.
+    function renderBarChart(temperature) {
+      if (currentLogits.length === 0) return;
+
+      var rawLogits = currentLogits.map(function (c) { return c.logit; });
+      var probs = softmax(rawLogits, temperature);
+
+      var chartEl = document.getElementById('bar-chart');
+      var html = '';
+
+      currentLogits.forEach(function (c, i) {
+        var pct = (probs[i] * 100).toFixed(1);
+        var colour = barColours[i % barColours.length];
+
+        html +=
+          '<div class="bar-row">' +
+            '<span class="bar-token">"' + c.token + '"</span>' +
+            '<div class="bar-track">' +
+              '<div class="bar-fill" style="' +
+                'width:' + pct + '%;' +
+                'background:' + colour.fill + ';' +
+                'box-shadow: 0 0 8px ' + colour.fill + '40;' +
+              '"></div>' +
+            '</div>' +
+            '<span class="bar-pct" style="color:' + colour.text + '">' + pct + '%</span>' +
+          '</div>';
+      });
+
+      chartEl.innerHTML = html;
+
+      // WHAT THIS DOES: Updates the live entropy reading based on the current probabilities.
+      var entropyVal = calculateEntropy(probs);
+      var entropyEl = document.getElementById('output-entropy');
+      if (entropyEl) {
+        entropyEl.textContent = entropyVal.toFixed(2) + ' bits';
+      }
+    }
+
+    // WHAT THIS DOES: Called every time the temperature slider moves.
+    // Updates the display value and re-renders the bar chart live.
+    function onTempChange(val) {
+      var temp = parseFloat(val);
+      document.getElementById('temp-display').textContent = temp.toFixed(2);
+      renderBarChart(temp);
+    }
+
+    // ============================================================
+    //  SIMULATED STREAMING OUTPUT
+    // ============================================================
+
+    // WHAT THIS DOES: Pre-defined canned responses matched to prompt context.
+    var cannedResponses = {
+      story: "The mysterious signal resonated through the cockpit consoles, decrypting into star coordinates that led straight to a forgotten orbital outpost.",
+      question: "Photosynthesis is the essential chemical process where plants use sunlight, water, and carbon dioxide to synthesize glucose and release oxygen.",
+      code: "def reverse_string(text):\n    reversed_text = ''\n    for char in text:\n        reversed_text = char + reversed_text\n    return reversed_text",
+      general: "Large language models generate text by predicting the most statistically probable next token, one step at a time, based on preceding context."
+    };
+
+    var typeTimer = null;
+
+    // WHAT THIS DOES: Types out a canned response word by word, updating the output
+    // token count with each word until the full text is revealed.
+    function startTypingOutput() {
+      if (typeTimer) {
+        clearInterval(typeTimer);
+      }
+
+      var text = document.getElementById('pg-prompt').value.toLowerCase();
+      var responseText = cannedResponses.general;
+
+      if (text.indexOf('once upon') >= 0 || text.indexOf('story') >= 0 || text.indexOf('galaxy') >= 0) {
+        responseText = cannedResponses.story;
+      } else if (text.indexOf('?') >= 0 || text.indexOf('what') >= 0 || text.indexOf('why') >= 0 || text.indexOf('how') >= 0) {
+        responseText = cannedResponses.question;
+      } else if (text.indexOf('function') >= 0 || text.indexOf('code') >= 0 || text.indexOf('python') >= 0 || text.indexOf('write') >= 0) {
+        responseText = cannedResponses.code;
+      }
+
+      var outputContainer = document.getElementById('pg-output');
+      var outputTextEl = document.getElementById('pg-output-text');
+      var tokenCountEl = document.getElementById('output-token-count');
+
+      outputContainer.classList.add('visible');
+
+      // If user prefers reduced motion, render complete text immediately
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        outputTextEl.innerHTML = responseText.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        var wordTokens = responseText.trim().split(/\s+/).length;
+        tokenCountEl.textContent = wordTokens;
+        return;
+      }
+
+      outputTextEl.innerHTML = '<span class="pg-output-cursor"></span>';
+      tokenCountEl.textContent = '0';
+
+      var words = responseText.split(/(\s+)/);
+      var wordIndex = 0;
+      var displayedTokens = 0;
+      var accumulatedText = '';
+
+      typeTimer = setInterval(function () {
+        if (wordIndex < words.length) {
+          var piece = words[wordIndex];
+          accumulatedText += piece;
+          if (piece.trim().length > 0) {
+            displayedTokens++;
+            tokenCountEl.textContent = displayedTokens;
+          }
+          outputTextEl.innerHTML = accumulatedText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '<span class="pg-output-cursor"></span>';
+          wordIndex++;
+        } else {
+          clearInterval(typeTimer);
+          typeTimer = null;
+          outputTextEl.innerHTML = accumulatedText.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+      }, 70);
+    }
+
+    // ============================================================
+    //  ATTENTION VISUALIZER
+    // ============================================================
+
+    // WHAT THIS DOES: Helper to construct an illustrative NxN attention matrix
+    // where each row represents a query token attending to all key tokens.
+    function createAttentionMatrix(tokens, peaks) {
+      var n = tokens.length;
+      var matrix = [];
+      for (var r = 0; r < n; r++) {
+        var row = [];
+        for (var c = 0; c < n; c++) {
+          var base = (r === c) ? 0.08 : (Math.abs(r - c) === 1 ? 0.04 : 0.015);
+          row.push(base);
+        }
+        if (peaks && peaks[r]) {
+          for (var target in peaks[r]) {
+            row[target] += peaks[r][target];
+          }
+        }
+        var sum = row.reduce(function (a, b) { return a + b; }, 0);
+        matrix.push(row.map(function (val) {
+          return Math.round((val / sum) * 100) / 100;
+        }));
+      }
+      return matrix;
+    }
+
+    // WHAT THIS DOES: Stores the 3 sentences, token lists, and illustrative
+    // attention weight matrices for all 3 attention heads.
+    var attnData = [
+      // Sentence 1
+      {
+        text: "The wizard placed the book on the altar because it was sacred",
+        tokens: ["The", "wizard", "placed", "the", "book", "on", "the", "altar", "because", "it", "was", "sacred"],
+        defaultQuery: 9, // "it"
+        heads: [
+          {
+            name: "Head 1: Pronoun Reference",
+            desc: "Resolves pronouns to their referents. Notice how 'it' attends heavily to 'altar' (66%) and 'book' (18%).",
+            matrix: createAttentionMatrix(
+              ["The", "wizard", "placed", "the", "book", "on", "the", "altar", "because", "it", "was", "sacred"],
+              {
+                9: { 7: 0.65, 4: 0.18, 11: 0.08 }, // "it" -> altar, book
+                11: { 7: 0.55, 9: 0.30 }            // "sacred" -> altar, it
+              }
+            )
+          },
+          {
+            name: "Head 2: Subject-Verb",
+            desc: "Tracks sentence structure. Notice how 'placed' attends back to 'wizard', and 'was' attends to 'it'.",
+            matrix: createAttentionMatrix(
+              ["The", "wizard", "placed", "the", "book", "on", "the", "altar", "because", "it", "was", "sacred"],
+              {
+                2: { 1: 0.72, 4: 0.16 }, // "placed" -> wizard, book
+                1: { 2: 0.60 },          // "wizard" -> placed
+                10: { 9: 0.70, 11: 0.15 } // "was" -> it, sacred
+              }
+            )
+          },
+          {
+            name: "Head 3: Modifiers",
+            desc: "Connects descriptive words and articles ('The', 'the', 'sacred') to the nouns they specify.",
+            matrix: createAttentionMatrix(
+              ["The", "wizard", "placed", "the", "book", "on", "the", "altar", "because", "it", "was", "sacred"],
+              {
+                0: { 1: 0.85 },          // "The" -> wizard
+                3: { 4: 0.85 },          // "the" -> book
+                6: { 7: 0.85 },          // "the" -> altar
+                11: { 7: 0.70, 4: 0.18 } // "sacred" -> altar, book
+              }
+            )
+          }
+        ]
+      },
+      // Sentence 2
+      {
+        text: "The astronaut fixed the telescope so she could observe the distant star",
+        tokens: ["The", "astronaut", "fixed", "the", "telescope", "so", "she", "could", "observe", "the", "distant", "star"],
+        defaultQuery: 6, // "she"
+        heads: [
+          {
+            name: "Head 1: Pronoun Reference",
+            desc: "Resolves 'she' directly to 'astronaut' with strong attention (78%).",
+            matrix: createAttentionMatrix(
+              ["The", "astronaut", "fixed", "the", "telescope", "so", "she", "could", "observe", "the", "distant", "star"],
+              {
+                6: { 1: 0.78, 8: 0.12 } // "she" -> astronaut
+              }
+            )
+          },
+          {
+            name: "Head 2: Subject-Verb",
+            desc: "Connects actors to actions: 'fixed' links to 'astronaut', 'observe' links to 'she' and 'star'.",
+            matrix: createAttentionMatrix(
+              ["The", "astronaut", "fixed", "the", "telescope", "so", "she", "could", "observe", "the", "distant", "star"],
+              {
+                2: { 1: 0.72, 4: 0.18 }, // "fixed" -> astronaut, telescope
+                8: { 6: 0.52, 11: 0.35 } // "observe" -> she, star
+              }
+            )
+          },
+          {
+            name: "Head 3: Modifiers",
+            desc: "Directs qualifiers: 'distant' attends to 'star' (84%), articles point to their nouns.",
+            matrix: createAttentionMatrix(
+              ["The", "astronaut", "fixed", "the", "telescope", "so", "she", "could", "observe", "the", "distant", "star"],
+              {
+                0: { 1: 0.85 },  // "The" -> astronaut
+                3: { 4: 0.85 },  // "the" -> telescope
+                9: { 11: 0.80 }, // "the" -> star
+                10: { 11: 0.84 } // "distant" -> star
+              }
+            )
+          }
+        ]
+      },
+      // Sentence 3
+      {
+        text: "The red robot quickly scanned the damaged circuit",
+        tokens: ["The", "red", "robot", "quickly", "scanned", "the", "damaged", "circuit"],
+        defaultQuery: 4, // "scanned"
+        heads: [
+          {
+            name: "Head 1: Pronoun Reference",
+            desc: "Tracks object binding across the clause, associating 'robot' with 'circuit'.",
+            matrix: createAttentionMatrix(
+              ["The", "red", "robot", "quickly", "scanned", "the", "damaged", "circuit"],
+              {
+                2: { 7: 0.45, 2: 0.40 } // "robot" -> circuit
+              }
+            )
+          },
+          {
+            name: "Head 2: Subject-Verb",
+            desc: "Binds the verb 'scanned' to subject 'robot' (68%) and direct object 'circuit' (22%).",
+            matrix: createAttentionMatrix(
+              ["The", "red", "robot", "quickly", "scanned", "the", "damaged", "circuit"],
+              {
+                4: { 2: 0.68, 7: 0.22 }, // "scanned" -> robot, circuit
+                3: { 4: 0.78 }          // "quickly" -> scanned
+              }
+            )
+          },
+          {
+            name: "Head 3: Modifiers",
+            desc: "Maps adjectives and adverbs: 'red' -> 'robot', 'damaged' -> 'circuit', 'quickly' -> 'scanned'.",
+            matrix: createAttentionMatrix(
+              ["The", "red", "robot", "quickly", "scanned", "the", "damaged", "circuit"],
+              {
+                0: { 2: 0.85 }, // "The" -> robot
+                1: { 2: 0.86 }, // "red" -> robot
+                3: { 4: 0.82 }, // "quickly" -> scanned
+                5: { 7: 0.85 }, // "the" -> circuit
+                6: { 7: 0.86 }  // "damaged" -> circuit
+              }
+            )
+          }
+        ]
+      }
+    ];
+
+    // WHAT THIS DOES: State variables for Attention visualizer.
+    var currentSentenceIdx = 0;
+    var currentHeadIdx = 0;
+    var currentQueryTokenIdx = 9; // "it" by default in Sentence 1
+
+    // WHAT THIS DOES: Switches the active example sentence.
+    function selectAttnSentence(index) {
+      currentSentenceIdx = index;
+      currentQueryTokenIdx = attnData[index].defaultQuery;
+
+      var sBtns = document.querySelectorAll('#attn-sentence-buttons .attn-selector-btn');
+      sBtns.forEach(function (btn, i) {
+        btn.classList.toggle('active', i === index);
+      });
+
+      renderAttentionVisualizer();
+    }
+
+    // WHAT THIS DOES: Switches the active attention head (Head 1, 2, or 3).
+    function selectAttnHead(index) {
+      currentHeadIdx = index;
+
+      var hBtns = document.querySelectorAll('#attn-head-buttons .attn-head-btn');
+      hBtns.forEach(function (btn, i) {
+        btn.classList.toggle('active', i === index);
+      });
+
+      renderAttentionVisualizer();
+    }
+
+    // WHAT THIS DOES: Sets the active query token when clicked.
+    function setQueryToken(index) {
+      currentQueryTokenIdx = index;
+      renderAttentionVisualizer();
+    }
+
+    // WHAT THIS DOES: Draws the curved attention arcs from the selected query token
+    // to all other tokens based on their attention weights in the current head.
+    function drawAttentionArcs(tokens, weights) {
+      var svg = document.getElementById('attn-arc-svg');
+      var container = document.getElementById('attn-arc-container');
+      var tokenElements = document.querySelectorAll('.attn-token-item');
+
+      if (!tokenElements.length) return;
+
+      var containerRect = container.getBoundingClientRect();
+      svg.setAttribute('width', container.scrollWidth);
+      svg.innerHTML = '';
+
+      var queryEl = tokenElements[currentQueryTokenIdx];
+      if (!queryEl) return;
+
+      var qRect = queryEl.getBoundingClientRect();
+      var qX = (qRect.left + qRect.width / 2) - containerRect.left + container.scrollLeft;
+      var baseY = 110;
+
+      tokens.forEach(function (tok, i) {
+        var weight = weights[i] || 0;
+        if (weight <= 0.02) return; // Skip negligible weights
+
+        var targetEl = tokenElements[i];
+        var tRect = targetEl.getBoundingClientRect();
+        var tX = (tRect.left + tRect.width / 2) - containerRect.left + container.scrollLeft;
+
+        var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        var d;
+
+        if (i === currentQueryTokenIdx) {
+          // Self-attention loop
+          d = 'M ' + (qX - 10) + ' ' + baseY +
+              ' C ' + (qX - 25) + ' ' + (baseY - 45) +
+              ' ' + (qX + 25) + ' ' + (baseY - 45) +
+              ' ' + (qX + 10) + ' ' + baseY;
+        } else {
+          // Quadratic curve connecting query token to target token
+          var dist = Math.abs(tX - qX);
+          var arcHeight = Math.min(95, 20 + dist * 0.22);
+          var midX = (qX + tX) / 2;
+          d = 'M ' + qX + ' ' + baseY + ' Q ' + midX + ' ' + (baseY - arcHeight) + ' ' + tX + ' ' + baseY;
+        }
+
+        var isHigh = weight >= 0.25;
+        var strokeColor = isHigh ? '#f59e0b' : '#22d3ee';
+        var strokeWidth = Math.max(1, weight * 5);
+        var strokeOpacity = Math.max(0.2, Math.min(0.95, weight * 1.2));
+
+        path.setAttribute('d', d);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', strokeColor);
+        path.setAttribute('stroke-width', strokeWidth);
+        path.setAttribute('stroke-opacity', strokeOpacity);
+        if (isHigh) {
+          path.setAttribute('filter', 'drop-shadow(0 0 4px rgba(245, 158, 11, 0.5))');
+        }
+
+        svg.appendChild(path);
+      });
+    }
+
+    // WHAT THIS DOES: Renders the full N x N attention matrix as an interactive heatmap table.
+    function renderAttentionHeatmap(tokens, matrix) {
+      var table = document.getElementById('attn-matrix-table');
+      var html = '<thead><tr><th></th>';
+
+      // Column headers (Key tokens)
+      tokens.forEach(function (tok) {
+        html += '<th class="col-header">' + tok.replace(/</g, '&lt;') + '</th>';
+      });
+      html += '</tr></thead><tbody>';
+
+      // Rows (Query tokens)
+      tokens.forEach(function (qTok, r) {
+        var isSelectedRow = (r === currentQueryTokenIdx);
+        html += '<tr class="' + (isSelectedRow ? 'selected-row' : '') + '">';
+        html += '<th class="row-header">' + qTok.replace(/</g, '&lt;') + '</th>';
+
+        tokens.forEach(function (kTok, c) {
+          var weight = matrix[r][c];
+          var pct = Math.round(weight * 100);
+          var bg = 'rgba(34, 211, 238, ' + Math.max(0.04, weight * 0.95) + ')';
+          if (weight >= 0.4) {
+            bg = 'rgba(245, 158, 11, ' + Math.max(0.3, weight) + ')';
+          }
+
+          html += '<td style="background:' + bg + ';" ' +
+                  'title="Query: ' + qTok + ' → Key: ' + kTok + ' (' + pct + '%)" ' +
+                  'onclick="setQueryToken(' + r + ')"></td>';
+        });
+
+        html += '</tr>';
+      });
+
+      html += '</tbody>';
+      table.innerHTML = html;
+    }
+
+    // WHAT THIS DOES: Re-renders the entire Attention visualizer:
+    // updates the head description, the token chips row, the arcs, and the heatmap.
+    function renderAttentionVisualizer() {
+      var sentenceObj = attnData[currentSentenceIdx];
+      var headObj = sentenceObj.heads[currentHeadIdx];
+      var tokens = sentenceObj.tokens;
+      var matrix = headObj.matrix;
+
+      // Update head description
+      document.getElementById('attn-head-desc').textContent = headObj.desc;
+
+      // Ensure valid query token
+      if (currentQueryTokenIdx >= tokens.length) {
+        currentQueryTokenIdx = 0;
+      }
+
+      var weightsFromQuery = matrix[currentQueryTokenIdx] || [];
+
+      // Render token chips
+      var track = document.getElementById('attn-tokens-track');
+      var html = '';
+
+      tokens.forEach(function (tok, i) {
+        var isQuery = (i === currentQueryTokenIdx);
+        var weight = weightsFromQuery[i] || 0;
+        var pct = Math.round(weight * 100);
+        var hasAttn = (weight >= 0.15 && !isQuery);
+
+        html +=
+          '<div class="attn-token-item ' + (isQuery ? 'is-query' : '') + ' ' + (hasAttn ? 'has-attention' : '') + '" ' +
+               'onclick="setQueryToken(' + i + ')">' +
+            '<div class="attn-token-badge">' + tok.replace(/</g, '&lt;') + '</div>' +
+            '<span class="attn-weight-tag">' + (isQuery ? 'Query' : pct + '%') + '</span>' +
+          '</div>';
+      });
+
+      track.innerHTML = html;
+
+      // Render arcs after elements layout
+      setTimeout(function () {
+        drawAttentionArcs(tokens, weightsFromQuery);
+      }, 20);
+
+      // Render heatmap
+      renderAttentionHeatmap(tokens, matrix);
+    }
+
+    // WHAT THIS DOES: Redraws arcs on window resize so they stay aligned with tokens.
+    window.addEventListener('resize', function () {
+      var sentenceObj = attnData[currentSentenceIdx];
+      var headObj = sentenceObj.heads[currentHeadIdx];
+      drawAttentionArcs(sentenceObj.tokens, headObj.matrix[currentQueryTokenIdx]);
+    });
+
+    // Initialize attention visualizer on initial page load
+    renderAttentionVisualizer();
+
+    // ============================================================
+    //  TRANSFORMER BLOCK ARCHITECTURE
+    // ============================================================
+
+    // WHAT THIS DOES: Stores plain-English explanations, importance, and math
+    // for every component in a single transformer block.
+    var transformerParts = {
+      emb: {
+        icon: "📦",
+        title: "Embedding + Positional Encoding",
+        desc: "Converts discrete token IDs into dense numerical vectors (e.g. 4096 dimensions). Because attention computes all tokens simultaneously with no innate awareness of word order, positional encodings (sinusoidal or RoPE) are added so the model knows where each word appears in the sentence.",
+        why: "Neural networks can only process numbers, not text. Positional encodings ensure that 'dog bites man' does not produce the exact same representation as 'man bites dog'.",
+        math: "Input_Vector = Token_Embedding(token_id) + Position_Encoding(pos)"
+      },
+      mha: {
+        icon: "🔍",
+        title: "Multi-Head Attention",
+        desc: "The context engine of the block. It runs multiple scaled dot-product attention heads in parallel (e.g. 32 to 128 heads). Each head projects the tokens into different representation spaces, letting tokens simultaneously track syntax, coreference, modifiers, and facts.",
+        why: "A single attention head would blend all relationships together. Multi-head attention lets the model look in many directions at once (e.g. one head links 'it' -> 'cat', while another links 'cat' -> 'tired').",
+        math: "MultiHead(Q,K,V) = Concat(head_1, ..., head_h) · W_O"
+      },
+      res1: {
+        icon: "⚡",
+        title: "Residual Connection (Skip Path around Attention)",
+        desc: "A direct high-speed bypass highway that takes the vector from before the attention layer and adds it directly to the attention output: x + Attention(x). The original representation bypasses the sublayer completely.",
+        why: "In deep networks (32 to 96+ layers), gradients vanish or explode during backpropagation. Residual skip connections allow learning signals to flow directly backwards without degradation.",
+        math: "Output = x + Attention(x)"
+      },
+      norm1: {
+        icon: "➕",
+        title: "Add & Norm (1)",
+        desc: "Adds the residual skip input (x) to the attention output, then normalizes the numbers across the hidden features (using LayerNorm or modern RMSNorm) so activations have stable mean and variance.",
+        why: "Prevents numbers from growing too large or small as they travel deeper into the model, ensuring smooth and stable training.",
+        math: "x_norm = LayerNorm(x + Attention(x))"
+      },
+      ffn: {
+        icon: "🧠",
+        title: "Feed-Forward Network (FFN / MLP)",
+        desc: "A two-layer neural network applied to each token vector independently. It first projects the vector to a much wider hidden size (typically 4x wider, e.g. 14,336 dimensions) using non-linear activations (like SwiGLU or GELU), then compresses it back down.",
+        why: "Attention only shuffles information between different tokens. The FFN is where the model stores factual knowledge and performs heavy memory recall and feature transformation.",
+        math: "FFN(x) = max(0, x · W_1 + b_1) · W_2 + b_2  (or SwiGLU)"
+      },
+      res2: {
+        icon: "⚡",
+        title: "Residual Connection (Skip Path around FFN)",
+        desc: "A second skip highway that passes the representation straight from Add & Norm (1) around the Feed-Forward Network: x + FFN(x).",
+        why: "Ensures the network can preserve previously acquired context and only has to learn incremental adjustments (residuals) rather than recreating the vector from scratch.",
+        math: "Output = x + FFN(x)"
+      },
+      norm2: {
+        icon: "➕",
+        title: "Add & Norm (2)",
+        desc: "Adds the second skip connection and normalizes the final vector of this transformer block, preparing it for the next block in the stack.",
+        why: "Maintains controlled statistical distribution before passing the enriched features upward to layer L+1.",
+        math: "Block_Output = LayerNorm(x + FFN(x))"
+      },
+      out: {
+        icon: "▲",
+        title: "Block Output (To Next Layer)",
+        desc: "The refined contextual representations of all tokens after completing this transformer block. In intermediate layers, this enters Block L+1. In the final block, this passes to the language model head (unembedding matrix) to compute token logits.",
+        why: "A single block refines the representation incrementally; stacking dozens of them creates the layered abstractions needed to produce coherent generation.",
+        math: "Next_Layer_Input = Block_Output"
+      }
+    };
+
+    // WHAT THIS DOES: Updates the active component highlight and fills the detail
+    // panel with plain-English explanation, necessity note, and math formula.
+    function selectTransformerPart(partKey) {
+      var data = transformerParts[partKey];
+      if (!data) return;
+
+      // Update active highlight classes on diagram nodes
+      var allNodes = document.querySelectorAll('.tf-node');
+      allNodes.forEach(function (n) { n.classList.remove('active'); });
+
+      var allTags = document.querySelectorAll('.tf-residual-tag');
+      allTags.forEach(function (t) { t.classList.remove('active'); });
+
+      // Highlight target node or residual tag
+      if (partKey === 'res1') {
+        document.querySelector('.tf-residual-tag.tag-bottom').classList.add('active');
+      } else if (partKey === 'res2') {
+        document.querySelector('.tf-residual-tag.tag-top').classList.add('active');
+      } else {
+        var nodeEl = document.getElementById('tf-node-' + partKey);
+        if (nodeEl) nodeEl.classList.add('active');
+      }
+
+      // Update detail card
+      document.getElementById('tf-detail-icon').textContent = data.icon;
+      document.getElementById('tf-detail-title').textContent = data.title;
+      document.getElementById('tf-detail-desc').textContent = data.desc;
+      document.getElementById('tf-detail-why').innerHTML = '<strong>Why it\'s essential:</strong> ' + data.why;
+      document.getElementById('tf-detail-math').textContent = data.math;
+    }
+
+    // ============================================================
+    //  GLOSSARY SECTION
+    // ============================================================
+
+    // WHAT THIS DOES: Complete dataset of 28 key AI terms categorized into
+    // Architecture, Mechanics, and Sampling & Output, each with definition and example.
+    var glossaryTerms = [
+      // Category 1: Architecture
+      {
+        term: "Transformer",
+        category: "arch",
+        categoryName: "Architecture",
+        def: "The state-of-the-art neural architecture based entirely on self-attention mechanisms that powers all modern LLMs.",
+        example: "GPT-4, Claude, Gemini, and Llama are all built on the transformer architecture."
+      },
+      {
+        term: "Multi-Head Attention",
+        category: "arch",
+        categoryName: "Architecture",
+        def: "Splits attention into several parallel 'heads' so tokens can correlate across multiple linguistic subspaces simultaneously.",
+        example: "One head tracks pronoun references while another head connects verbs to their direct objects."
+      },
+      {
+        term: "Residual Connection",
+        category: "arch",
+        categoryName: "Architecture",
+        def: "A bypass highway that adds a layer's input directly to its output (x + f(x)), preventing vanishing gradients in deep networks.",
+        example: "Allows 100+ layer deep networks to train stably without signals fading away."
+      },
+      {
+        term: "Feed-Forward Network (FFN)",
+        category: "arch",
+        categoryName: "Architecture",
+        def: "An independent neural sublayer applied to each token vector to store factual memory and perform non-linear transformations.",
+        example: "Expands a 4096-dim vector to 14,336 dimensions to recall facts before compressing it back."
+      },
+      {
+        term: "Layer Normalization",
+        category: "arch",
+        categoryName: "Architecture",
+        def: "A stabilization step that re-scales activations across hidden features to keep values within consistent statistical ranges.",
+        example: "Ensures activations don't explode or shrink towards zero over dozens of stacked layers."
+      },
+      {
+        term: "Positional Encoding",
+        category: "arch",
+        categoryName: "Architecture",
+        def: "Numerical coordinates added to token embeddings so the attention mechanism understands sequential word order.",
+        example: "Ensures the model understands that 'dog bites man' differs completely from 'man bites dog'."
+      },
+      {
+        term: "Context Window",
+        category: "arch",
+        categoryName: "Architecture",
+        def: "The maximum span of tokens (prompt + output) that a model can attend to in a single active session.",
+        example: "Models with 128k context windows can process entire textbooks or code repositories in one prompt."
+      },
+      {
+        term: "Parameters (Weights)",
+        category: "arch",
+        categoryName: "Architecture",
+        def: "The billions of learned numerical values inside the neural network adjusted during training that hold its knowledge.",
+        example: "Llama 3 8B contains 8 billion parameters, while GPT-3 contains 175 billion."
+      },
+      {
+        term: "KV Cache",
+        category: "arch",
+        categoryName: "Architecture",
+        def: "A memory optimization that stores previous Key and Value vectors in GPU RAM so earlier tokens aren't recomputed each step.",
+        example: "Generating the 500th word only computes 1 new token instead of reprocessing all 500 words."
+      },
+
+      // Category 2: Mechanics
+      {
+        term: "Token",
+        category: "mech",
+        categoryName: "Mechanics",
+        def: "The basic atomic unit of text (a word fragment, whole word, or punctuation) processed by language models.",
+        example: "The word 'unbelievable' might be split by the tokenizer into ['un', 'believ', 'able']."
+      },
+      {
+        term: "Tokenization",
+        category: "mech",
+        categoryName: "Mechanics",
+        def: "The algorithmic process (such as Byte-Pair Encoding) that converts raw text strings into discrete integer token IDs.",
+        example: "Converting the string 'Hello world!' into numerical IDs [15496, 995, 0]."
+      },
+      {
+        term: "Embedding",
+        category: "mech",
+        categoryName: "Mechanics",
+        def: "A high-dimensional vector of numbers where words with similar meanings are positioned close together.",
+        example: "In embedding space, vector('king') - vector('man') + vector('woman') lands near vector('queen')."
+      },
+      {
+        term: "Self-Attention",
+        category: "mech",
+        categoryName: "Mechanics",
+        def: "The mathematical operation allowing every token in a sentence to calculate relevance scores against all other tokens.",
+        example: "Helps 'it' attend strongly to 'cat' in 'The cat rested on the rug because it was tired'."
+      },
+      {
+        term: "Query, Key, Value (QKV)",
+        category: "mech",
+        categoryName: "Mechanics",
+        def: "The three projected vectors computed for every token: Query asks for context, Key advertises traits, and Value delivers content.",
+        example: "A Query asking 'who is sacred?' matches the Key for 'altar' to retrieve its Value vector."
+      },
+      {
+        term: "Logits",
+        category: "mech",
+        categoryName: "Mechanics",
+        def: "The raw, unnormalized prediction scores generated by the model's output layer for every token in its vocabulary.",
+        example: "Vocabulary scores like [+6.2 for 'the', +3.1 for 'a', -1.5 for 'zebra'] before converting to %."
+      },
+      {
+        term: "Softmax",
+        category: "mech",
+        categoryName: "Mechanics",
+        def: "A mathematical function that normalizes a list of raw logit scores into probabilities that sum up to exactly 1.0 (100%).",
+        example: "Converts raw logits [2.0, 1.0, 0.1] into percentages [65%, 24%, 11%]."
+      },
+      {
+        term: "Pre-training",
+        category: "mech",
+        categoryName: "Mechanics",
+        def: "The initial compute-heavy phase where a model learns language patterns by predicting the next word across trillions of tokens.",
+        example: "Training across massive internet text corpora for several months using thousands of GPUs."
+      },
+      {
+        term: "Fine-Tuning",
+        category: "mech",
+        categoryName: "Mechanics",
+        def: "Adapting a pre-trained base model on curated task-specific data to improve its performance on targeted skills.",
+        example: "Training a base model on medical dialogue to create a specialized clinical assistant."
+      },
+      {
+        term: "RLHF",
+        category: "mech",
+        categoryName: "Mechanics",
+        def: "Reinforcement Learning from Human Feedback: aligning models with human preferences to make outputs helpful and harmless.",
+        example: "Teaching a model to politely decline generating harmful content while providing helpful advice."
+      },
+
+      // Category 3: Sampling & Output
+      {
+        term: "Temperature",
+        category: "samp",
+        categoryName: "Sampling & Output",
+        def: "A decoding parameter that scales logits before softmax to balance predictable accuracy versus creative variety.",
+        example: "Temperature 0.1 gives consistent factual answers; temperature 1.2 gives creative, varied writing."
+      },
+      {
+        term: "Top-K Sampling",
+        category: "samp",
+        categoryName: "Sampling & Output",
+        def: "A decoding cutoff that strictly restricts candidate tokens to the K most probable options, discarding the rest.",
+        example: "Setting Top-K = 50 forces the model to choose only from the 50 highest-probability words."
+      },
+      {
+        term: "Top-P (Nucleus) Sampling",
+        category: "samp",
+        categoryName: "Sampling & Output",
+        def: "A dynamic sampling strategy that pools the smallest set of top tokens whose cumulative probability reaches percentage P.",
+        example: "Top-P = 0.90 keeps top words until their combined chance hits 90%, discarding unlikely outliers."
+      },
+      {
+        term: "Greedy Decoding",
+        category: "samp",
+        categoryName: "Sampling & Output",
+        def: "A deterministic sampling approach that always selects the single highest-probability token at every step (Temperature = 0).",
+        example: "Always picking the #1 predicted word, which is fast and factual but can repeat in long answers."
+      },
+      {
+        term: "Hallucination",
+        category: "samp",
+        categoryName: "Sampling & Output",
+        def: "When an LLM produces factually inaccurate or invented information with high grammatical confidence and fluency.",
+        example: "Confidently citing a fake court case or inventing a non-existent scientific paper."
+      },
+      {
+        term: "Perplexity",
+        category: "samp",
+        categoryName: "Sampling & Output",
+        def: "A metric measuring how surprised a model is by a sequence of words; lower perplexity indicates higher confidence.",
+        example: "Fluent text gives a low perplexity of ~15, whereas jumbled random words score 500+."
+      },
+      {
+        term: "System Prompt",
+        category: "samp",
+        categoryName: "Sampling & Output",
+        def: "Initial foundational instructions that establish the model's persona, formatting rules, and guardrails for a session.",
+        example: "'You are a patient physics teacher who explains concepts using simple real-world analogies.'"
+      },
+      {
+        term: "Stop Sequence (EOS)",
+        category: "samp",
+        categoryName: "Sampling & Output",
+        def: "A special token (like <|endoftext|>) that tells the inference engine that generation is complete and to halt.",
+        example: "When the model emits the stop token, the text generation loop immediately concludes."
+      },
+      {
+        term: "Entropy",
+        category: "samp",
+        categoryName: "Sampling & Output",
+        def: "A measure of randomness or uncertainty in the token probability distribution at any generation step.",
+        example: "High entropy means many tokens have equal probability; low entropy means one clear favorite token."
+      }
+    ];
+
+    // WHAT THIS DOES: Current filter state for the Glossary.
+    var currentGlossaryCategory = "all";
+    var currentGlossarySearch = "";
+
+    // WHAT THIS DOES: Filters and renders glossary cards based on category and search query.
+    function renderGlossary() {
+      var grid = document.getElementById('glossary-grid');
+      var counter = document.getElementById('glossary-count');
+      var query = currentGlossarySearch.trim().toLowerCase();
+
+      var filtered = glossaryTerms.filter(function (item) {
+        var matchesCat = (currentGlossaryCategory === 'all' || item.category === currentGlossaryCategory);
+        var matchesSearch = true;
+        if (query) {
+          var inTerm = item.term.toLowerCase().indexOf(query) >= 0;
+          var inDef = item.def.toLowerCase().indexOf(query) >= 0;
+          var inEx = item.example.toLowerCase().indexOf(query) >= 0;
+          matchesSearch = (inTerm || inDef || inEx);
+        }
+        return matchesCat && matchesSearch;
+      });
+
+      counter.textContent = filtered.length;
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div class="glossary-empty">No terms found matching "' + query.replace(/</g, '&lt;') + '". Try clearing the search or category filter.</div>';
+        return;
+      }
+
+      var html = '';
+      filtered.forEach(function (item) {
+        html +=
+          '<div class="glossary-card">' +
+            '<div class="glossary-card-header">' +
+              '<span class="glossary-term">' + item.term + '</span>' +
+              '<span class="glossary-badge ' + item.category + '">' + item.categoryName + '</span>' +
+            '</div>' +
+            '<p class="glossary-def">' + item.def + '</p>' +
+            '<div class="glossary-example">' +
+              '<strong>Example:</strong> ' + item.example +
+            '</div>' +
+          '</div>';
+      });
+
+      grid.innerHTML = html;
+    }
+
+    // WHAT THIS DOES: Updates the glossary search query live as the user types.
+    function onGlossarySearch(val) {
+      currentGlossarySearch = val;
+      renderGlossary();
+    }
+
+    // WHAT THIS DOES: Changes the active category filter (All, Architecture, Mechanics, Sampling).
+    function setGlossaryCategory(cat) {
+      currentGlossaryCategory = cat;
+
+      var buttons = document.querySelectorAll('#glossary-filter-buttons .glossary-filter-btn');
+      var catKeys = ['all', 'arch', 'mech', 'samp'];
+      buttons.forEach(function (btn, i) {
+        btn.classList.toggle('active', catKeys[i] === cat);
+      });
+
+      renderGlossary();
+    }
+
+    // Initialize Glossary on initial page load
+    renderGlossary();
+
+    // ============================================================
+    //  KNOWLEDGE QUIZ
+    // ============================================================
+
+    // WHAT THIS DOES: 6 multiple-choice questions covering all pipeline stages,
+    // attention mechanics, temperature, residuals, and deep architectures.
+    var quizQuestions = [
+      {
+        q: "Why can't neural networks read raw text or words directly without tokenization?",
+        options: [
+          "Text files are too large to fit in computer memory",
+          "Neural networks are mathematical engines that can only compute on numbers and vectors",
+          "Computer processors only recognize binary machine code instructions",
+          "Words in different languages use incompatible character sets"
+        ],
+        answer: 1,
+        explanation: "Neural networks perform continuous matrix multiplications and calculus. Tokenization and embeddings translate discrete human words into numerical arrays the model can compute with."
+      },
+      {
+        q: "In the sentence 'The wizard placed the book on the altar because it was sacred', what mechanism allows the model to know 'it' refers to 'altar'?",
+        options: [
+          "A hardcoded grammatical rule dictionary",
+          "Self-Attention (Query-Key matching across tokens)",
+          "Random temperature sampling",
+          "Layer normalization"
+        ],
+        answer: 1,
+        explanation: "Self-attention computes dot-products between the Query vector of 'it' and Key vectors of all earlier tokens, finding the highest compatibility with 'altar' (strengthened by 'sacred')."
+      },
+      {
+        q: "In the attention formula softmax( (Q · Kᵀ) / √d_k ) · V, why do we divide by √d_k?",
+        options: [
+          "To convert 2D matrices into 1D vectors",
+          "To prevent large values from causing vanishing gradients in the softmax function",
+          "To remove punctuation tokens from the sequence",
+          "To reduce memory consumption by half"
+        ],
+        answer: 1,
+        explanation: "In high embedding dimensions (d_k), dot products grow large, pushing the softmax into flat regions with vanishingly small gradients. Dividing by √d_k scales variance back to 1.0, keeping learning stable."
+      },
+      {
+        q: "What happens when you lower the sampling Temperature close to 0 (e.g. 0.1)?",
+        options: [
+          "Outputs become wild, creative, and unpredictable",
+          "The top-ranking token dominates, producing focused and deterministic text",
+          "The model halts text generation completely",
+          "All vocabulary words receive equal probability"
+        ],
+        answer: 1,
+        explanation: "Dividing logits by a small temperature sharpens the distribution, causing the single highest logit to capture almost 100% of the probability mass."
+      },
+      {
+        q: "What is the primary function of the residual (skip) connection x + Sublayer(x) in a transformer block?",
+        options: [
+          "To compress the context window into fewer tokens",
+          "To provide an uninterrupted highway for gradients to flow backwards without vanishing in deep models",
+          "To translate English words into foreign tokens",
+          "To double the model's parameters at inference time"
+        ],
+        answer: 1,
+        explanation: "In deep networks (32 to 96+ layers), repeated matrix multiplications cause gradients to fade away. Skip connections give backpropagation an unblocked path through the entire network."
+      },
+      {
+        q: "How do modern frontier models like GPT-4, Llama 3, or Claude achieve complex reasoning?",
+        options: [
+          "By stacking 32 to 96+ identical transformer blocks on top of each other",
+          "By running a single transformer block in an infinite continuous loop",
+          "By looking up every generated sentence in an external SQL database",
+          "By executing binary machine code scripts during the forward pass"
+        ],
+        answer: 0,
+        explanation: "Frontier LLMs stack dozens of transformer blocks (e.g. 32 in Llama 3 8B, 96 in GPT-3, 126 in Llama 3 405B). Each layer builds progressively richer and more abstract representations."
+      }
+    ];
+
+    // WHAT THIS DOES: Quiz state variables
+    var currentQuizIndex = 0;
+    var quizScore = 0;
+    var quizAnswered = false;
+
+    // WHAT THIS DOES: Renders the active question, options, progress bar, and score.
+    function renderQuizQuestion() {
+      var qData = quizQuestions[currentQuizIndex];
+      var total = quizQuestions.length;
+
+      quizAnswered = false;
+
+      // Update question counter & progress bar
+      document.getElementById('quiz-q-num').textContent = currentQuizIndex + 1;
+      document.getElementById('quiz-live-score').textContent = quizScore;
+      document.getElementById('quiz-progress-fill').style.width = (((currentQuizIndex + 1) / total) * 100) + '%';
+
+      // Set question text
+      document.getElementById('quiz-question-text').textContent = qData.q;
+
+      // Render 4 answer option buttons
+      var optionsContainer = document.getElementById('quiz-options');
+      var letters = ['A', 'B', 'C', 'D'];
+      var html = '';
+
+      qData.options.forEach(function (optText, i) {
+        html +=
+          '<button class="quiz-option-btn" id="quiz-opt-' + i + '" onclick="chooseQuizAnswer(' + i + ')">' +
+            '<span class="quiz-option-letter">' + letters[i] + '</span>' +
+            '<span>' + optText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>' +
+          '</button>';
+      });
+
+      optionsContainer.innerHTML = html;
+
+      // Hide feedback box and next button
+      var feedbackBox = document.getElementById('quiz-feedback');
+      feedbackBox.className = 'quiz-feedback';
+      feedbackBox.style.display = 'none';
+
+      var nextBtn = document.getElementById('quiz-next-btn');
+      nextBtn.classList.remove('show');
+      nextBtn.textContent = (currentQuizIndex === total - 1) ? 'See Final Score 🎉' : 'Next Question ▶';
+    }
+
+    // WHAT THIS DOES: Evaluates the chosen answer instantly, highlights correct/incorrect,
+    // reveals the explanation, and updates the score.
+    function chooseQuizAnswer(chosenIndex) {
+      if (quizAnswered) return;
+      quizAnswered = true;
+
+      var qData = quizQuestions[currentQuizIndex];
+      var isCorrect = (chosenIndex === qData.answer);
+
+      if (isCorrect) {
+        quizScore++;
+        document.getElementById('quiz-live-score').textContent = quizScore;
+      }
+
+      // Highlight options
+      var allButtons = document.querySelectorAll('.quiz-option-btn');
+      allButtons.forEach(function (btn, i) {
+        btn.disabled = true;
+        if (i === qData.answer) {
+          btn.classList.add('correct');
+        } else if (i === chosenIndex && !isCorrect) {
+          btn.classList.add('incorrect');
+        }
+      });
+
+      // Show feedback explanation
+      var feedbackBox = document.getElementById('quiz-feedback');
+      var feedbackTitle = document.getElementById('quiz-feedback-title');
+      var feedbackText = document.getElementById('quiz-feedback-text');
+
+      feedbackBox.className = 'quiz-feedback show ' + (isCorrect ? 'is-correct' : 'is-incorrect');
+      feedbackBox.style.display = 'block';
+      feedbackTitle.textContent = isCorrect ? '✓ Correct!' : '✗ Incorrect';
+      feedbackText.textContent = qData.explanation;
+
+      // Show next question button
+      document.getElementById('quiz-next-btn').classList.add('show');
+    }
+
+    // WHAT THIS DOES: Advances to the next question or shows the final score screen.
+    function nextQuizQuestion() {
+      if (currentQuizIndex < quizQuestions.length - 1) {
+        currentQuizIndex++;
+        renderQuizQuestion();
+      } else {
+        // Show results screen
+        document.getElementById('quiz-question-card').style.display = 'none';
+        var resultsCard = document.getElementById('quiz-results-card');
+        resultsCard.style.display = 'block';
+
+        document.getElementById('quiz-final-score').textContent = quizScore;
+
+        var descEl = document.getElementById('quiz-results-desc');
+        var titleEl = document.getElementById('quiz-results-title');
+
+        if (quizScore === 6) {
+          titleEl.textContent = '🏆 Perfect Score!';
+          descEl.textContent = 'Flawless performance! You have mastered the entire LLM pipeline from raw tokenization down to transformer residual mechanics.';
+        } else if (quizScore >= 4) {
+          titleEl.textContent = '⭐ Great Job!';
+          descEl.textContent = 'You have a solid understanding of how modern large language models process and generate language.';
+        } else {
+          titleEl.textContent = '📘 Good Effort!';
+          descEl.textContent = 'You have made a great start. Review the Attention and Transformer sections above and give it another try!';
+        }
+      }
+    }
+
+    // WHAT THIS DOES: Resets the quiz back to Question 1 so the user can try again.
+    function resetQuiz() {
+      currentQuizIndex = 0;
+      quizScore = 0;
+      quizAnswered = false;
+
+      document.getElementById('quiz-results-card').style.display = 'none';
+      document.getElementById('quiz-question-card').style.display = 'block';
+
+      renderQuizQuestion();
+    }
+
+    // Initialize Quiz on initial page load
+    renderQuizQuestion();
+  </script>
+
+</body>
+</html>
